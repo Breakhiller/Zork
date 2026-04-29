@@ -23,16 +23,21 @@ class Piece:
         print(self.nom)
         print(self.description)
 
+#        if  self.objets:
+#            print("Objets visibles :",", ".join(objet.nom for objet in self.objets))
+
         if  self.objets:
-            print("Objets visibles :",", ".join(objet.nom for objet in self.objets))
+            for objet in self.objets:
+                print(f"Il y a {objet.description} ici")
 
         if self.sorties:
             print("Sorties :", ", ".join(self.sorties.keys()))
 
 
 class Objet:
-    def __init__(self, nom, portable = True):
+    def __init__(self, nom, description, portable = True):
         self.nom = nom
+        self.description = description
         self.portable = portable
         self.etat = {}                  # allumé ou éteint
 
@@ -59,7 +64,8 @@ class Engine:
     def lancer(self):
         print("Bienvenue")
 
-        self.joueur.position.decrire()
+#        self.joueur.position.decrire()
+        self.decrire_position()
 
         while self.en_cours:
             commande = input("\n ").strip().lower()
@@ -74,12 +80,18 @@ class Engine:
             print("Fin de la partie")
             return
         
+        if  commande in("regarder", "look"):
+            self.decrire_position()
+            return
+        
         mots = commande.split()
         verbe = mots[0]
         complement = " ".join(mots[1:])
 
         if  verbe in ("prendre", "take"):
             self.prendre(complement)
+        elif verbe == "allumer":
+            self.allumer(complement)
         else:
             # pour nord, sud, est, ouest, entrer, sortir, monter, descendre ...        
             self.aller(commande)
@@ -90,9 +102,24 @@ class Engine:
 
         if  direction in piece.sorties:
             self.joueur.position = piece.sorties[direction]
-            self.joueur.position.decrire()
+#            self.joueur.position.decrire()
+            self.decrire_position()
         else:
             print("Tu ne peux pas aller par là.")
+
+    def allumer(self, nom_objet):
+        objet = self.joueur.trouver_objet(nom_objet)
+
+        if  objet is None:
+            print("Tu n'as pas cet objet")
+            return
+
+        if  objet.nom != "lampe":
+            print("Tu ne peux pas allumer ça.")
+            return  
+        
+        objet.etat["allumee"] = True
+        print("La lampe est maintenant allumée")
 
     def prendre(self, nom_objet):
         if  nom_objet == "":
@@ -112,6 +139,21 @@ class Engine:
         piece.objets.remove(objet)
         self.joueur.inventaire.append(objet)
         print(f"Tu prends {objet.nom}")
+
+    def decrire_position(self):
+        piece = self.joueur.position
+
+        if  piece.flags.get("sombre", False) and not self.joueur_a_lumiere():
+            print("Il fait trop sombre pour voir quoi que ce soit")
+            return
+        
+        piece.decrire()
+
+    def joueur_a_lumiere(self):
+        for objet in self.joueur.inventaire:
+            if  objet.nom == "lampe" and objet.etat.get("allumee", False):
+                return True
+        return False
 
 
 def creer_monde():
@@ -146,26 +188,27 @@ def creer_monde():
     foret.ajouter_sortie("sud", devant_maison)
 
     # Objets
-    lampe = Objet("lampe")
-    corde = Objet("corde")
-    boite = Objet("boîte aux lettres", portable=False)
+    lampe = Objet("lampe", "Une vieille lampe possiéreuse")
+    lampe.etat["allumee"] = False
+    corde = Objet("corde", "Une corde usée, mais solide")
+    boite = Objet("boîte aux lettres", "Une boîte aux lettres ouverte", portable=False)
 
     # Localisation objets
     devant_maison.ajouter_objet(boite)
     salon.ajouter_objet(lampe)
     cave.ajouter_objet(corde)
 
-    # États locaux
+    # États locaux (pièces)
     cave.flags["sombre"] = True
     salon.flags["tapis déplacé"] = False
+
 
     # Point d'entrée        
     return devant_maison    
 
 
 # main
-# if __name__ == "__main__" : 
-
-piece_depart = creer_monde()
-jeu = Engine(piece_depart)
-jeu.lancer()
+if __name__ == "__main__" :
+    piece_depart = creer_monde()
+    jeu = Engine(piece_depart)
+    jeu.lancer()
