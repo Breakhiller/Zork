@@ -12,6 +12,15 @@ class Piece:
     def ajouter_sortie(self, direction, piece_destination):
         self.sorties[direction] = piece_destination
 
+class Objet:
+    def __init__(self, nom, portable = True):
+        self.nom = nom
+        self.portable = portable
+        self.etat = {}                  # allumé ou éteint
+
+    def __repr__(self):
+        return self.nom                 # évite d'avoir un nom eas56e11...
+
 class Joueur:
     def __init__(self, position_depart):
         self.position = position_depart
@@ -38,7 +47,14 @@ class Engine:
             print("Fin de la partie")
             return
         
-        self.aller(commande)
+        mots = commande.split()
+        verbe = mots[0]
+        complement = " ".join(mots[1:])
+
+        if  verbe in ("prendre", "take"):
+            self.prendre(complement)
+        else:        
+            self.aller(commande)
 
     def aller(self, direction):
         # direction = self.direction
@@ -49,6 +65,10 @@ class Engine:
             self.joueur.position.decrire()
         else:
             print("Tu ne peux pas aller par là.")
+
+    def prendre(self, nom_objet):
+        piece = self.joueur.position
+        objet = piece.tr
 
 
 
