@@ -257,10 +257,25 @@ def creer_monde():
 
     foret.ajouter_sortie("sud", devant_maison)
 
+    # Monde
+    monde = {
+        "depart": devant_maison,
+        "salon": salon,
+        "cave": cave,
+        "foret": foret
+    }
+
     # Objets
     lampe = Objet("lampe", "Une vieille lampe possiéreuse")
     lampe.props = {"lumiere": True, "allumable": True}
     lampe.etat["allumee"] = False
+    tapis = object("tapis", "Un grand tapis d'orient au centre de la pièce")
+    tapis.props = {"deplacable": True}
+    tapis.action["deplacer"] = {
+        "message": "Tu déplaces le tapis. Une trappe apparaît sur le sol",
+        "set_flags": {"tapis_deplace": True},
+        "revele_sorties": {"descendre": "cave"}
+    }
     corde = Objet("corde", "Une corde usée, mais solide")
     boite = Objet("boîte aux lettres", "Une boîte aux lettres ouverte", portable=False)
 
