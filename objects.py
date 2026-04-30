@@ -39,7 +39,9 @@ class Objet:
         self.nom = nom
         self.description = description
         self.portable = portable
+        self.props = {}                 # ce que l'objet peut faire
         self.etat = {}                  # allumé ou éteint
+        self.actions = {}   
 
     def __repr__(self):
         return self.nom                 # évite d'avoir un nom eas56e11...
@@ -71,6 +73,19 @@ class Engine:
             commande = input("\n ").strip().lower()
             self.traiter_commande(commande)
 
+    def trouver_objet_global(self, nom_objet):
+        piece = self.joueur.position
+
+        objet = piece.trouver_objet(nom_objet)
+        if  objet:
+            return objet, "piece"
+        
+        objet = self.joueur.trouver_objet(nom_objet)
+        if  objet:
+            return objet, "inventaire"
+        
+        return None, None
+
     def traiter_commande(self, commande):
         if  commande == "":
             return
@@ -92,6 +107,10 @@ class Engine:
             self.prendre(complement)
         elif verbe == "allumer":
             self.allumer(complement)
+        elif verbe == "examiner":
+            self.examiner(complement)
+        elif verbe == "poser":
+            self.poser(complement)
         else:
             # pour nord, sud, est, ouest, entrer, sortir, monter, descendre ...        
             self.aller(commande)
@@ -114,45 +133,96 @@ class Engine:
             print("Tu n'as pas cet objet")
             return
 
-        if  objet.nom != "lampe":
+        if not objet.props.get("allumable"):
             print("Tu ne peux pas allumer ça.")
             return  
         
         objet.etat["allumee"] = True
         print("La lampe est maintenant allumée")
 
+    def examiner(self, nom_objet):
+        if  nom_objet == "":
+            print("examiner quoi ?")
+            return
+        
+        objet, origine = self.trouver_objet_global(nom_objet)
+
+        if  objet is None:
+            print("Tu ne vois pas cet objet ici.")
+            return
+        
+        if  origine == "piece":
+            print("Tu regardes autour de toi...")
+        else:
+            print("Tu regardes dans ton inventaire...")
+        
+        print(objet.description)
+
     def prendre(self, nom_objet):
         if  nom_objet == "":
             print("Prendre quoi ?")
+            return
 
-        piece = self.joueur.position
-        objet = piece.trouver_objet(nom_objet)
+        objet, origine = self.trouver_objet_global(nom_objet)
 
         if  objet is None:
             print("Cet objet n'est pas ici")
             return
         
-        if  not objet.portable:
-            print("Tu ne peux pas rendre cet objet")
+        if  origine == "inventaire":
+            print("Tu l'as déjà")
             return
         
+        if  not objet.portable:
+            print("Tu ne peux pas prendre cet objet")
+            return
+        
+        piece = self.joueur.position
         piece.objets.remove(objet)
         self.joueur.inventaire.append(objet)
         print(f"Tu prends {objet.nom}")
 
+    def poser(self, nom_objet):
+        if  nom_objet == "":
+            print("poser quoi ?")
+            return
+        
+        objet, origine = self.trouver_objet_global(nom_objet)
+
+        if  objet is None:
+            print("Tu n'as pas cet objet")
+            return
+
+        if  origine == "piece":
+            print("Cet objet est déjà ici.")
+            return
+        
+        self.joueur.inventaire.remove(objet)
+        piece = self.joueur.position
+        piece.objets.append(objet)
+        print(f"Tu poses {objet.nom}")
+
+
     def decrire_position(self):
         piece = self.joueur.position
 
-        if  piece.flags.get("sombre", False) and not self.joueur_a_lumiere():
+        if  piece.flags.get("sombre") and not self.joueur_a_lumiere():
             print("Il fait trop sombre pour voir quoi que ce soit")
             return
         
         piece.decrire()
 
     def joueur_a_lumiere(self):
+        # lumière portée dans l'inventaire
         for objet in self.joueur.inventaire:
-            if  objet.nom == "lampe" and objet.etat.get("allumee", False):
+            if  objet.props.get("lumiere") and objet.etat.get("allumee"):
                 return True
+            
+        # lumière dans la pièce
+        for objet in self.joueur.position.objets:
+            if  objet.props.get("lumiere") and objet.etat.get("allumee"):
+                return True
+
         return False
 
 
@@ -189,6 +259,7 @@ def creer_monde():
 
     # Objets
     lampe = Objet("lampe", "Une vieille lampe possiéreuse")
+    lampe.props = {"lumiere": True, "allumable": True}
     lampe.etat["allumee"] = False
     corde = Objet("corde", "Une corde usée, mais solide")
     boite = Objet("boîte aux lettres", "Une boîte aux lettres ouverte", portable=False)
