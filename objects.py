@@ -59,8 +59,9 @@ class Joueur:
 
 
 class Engine:
-    def __init__(self, piece_depart):
-        self.joueur = Joueur(piece_depart)
+    def __init__(self, monde):
+        self.monde = monde
+        self.joueur = Joueur(monde["depart"])
         self.en_cours = True
 
     def lancer(self):
@@ -105,10 +106,14 @@ class Engine:
 
         if  verbe in ("prendre", "take"):
             self.prendre(complement)
+        elif verbe in ("déplacer", "soulever"):
+            self.executer_action_objet("deplacer", complement)
         elif verbe == "allumer":
             self.allumer(complement)
         elif verbe == "examiner":
             self.examiner(complement)
+        elif verbe == "ouvrir":
+            self.executer_action_objet("ouvrir", complement)
         elif verbe == "poser":
             self.poser(complement)
         else:
@@ -138,7 +143,7 @@ class Engine:
             return  
         
         objet.etat["allumee"] = True
-        print("La lampe est maintenant allumée")
+        print(f"La {objet.nom} est maintenant allumée")
 
     def examiner(self, nom_objet):
         if  nom_objet == "":
@@ -204,9 +209,9 @@ class Engine:
 
 
     def decrire_position(self):
-        piece = self.joueur.position
+        piece:Piece = self.joueur.position
 
-        if  piece.flags.get("sombre") and not self.joueur_a_lumiere():
+        if  piece.flags.get("sombre", False) and not self.joueur_a_lumiere():
             print("Il fait trop sombre pour voir quoi que ce soit")
             return
         
@@ -215,15 +220,54 @@ class Engine:
     def joueur_a_lumiere(self):
         # lumière portée dans l'inventaire
         for objet in self.joueur.inventaire:
-            if  objet.props.get("lumiere") and objet.etat.get("allumee"):
+            if  objet.props.get("lumiere", False) and objet.etat.get("allumee", False):
                 return True
             
         # lumière dans la pièce
         for objet in self.joueur.position.objets:
-            if  objet.props.get("lumiere") and objet.etat.get("allumee"):
+            if  objet.props.get("lumiere", False) and objet.etat.get("allumee", False):
                 return True
 
         return False
+    
+    def executer_action_objet(self, action, nom_objet):
+        piece:Piece = self.joueur.position
+        objet:Objet = piece.trouver_objet(nom_objet)              # cherche objet dans Piece
+#        print(piece.nom)
+#        print(objet)
+
+        if  objet is None:                                  # rien trouvé dans la pièce
+            objet = self.joueur.trouver_objet(nom_objet)    # cherche objet dans l'inventaire
+
+        if  objet is None:                                  # rien trouvé dans l'inventaire
+            print("Tu ne vois pas cet objet ici")
+            return
+        
+        # objet trouvé, on fait quoi avec (si on peut, dépend si action définie dans objet)
+        if  action not in objet.actions:
+            print("Rien d'intéressant ne se produit.")
+            return
+        
+        regle = objet.actions[action]
+        conditions = regle.get("conditions", {})
+
+        # le cas échéant, les conditions de l'action sont-elles remplies
+        for flag, valeur_attendue in conditions.get("flags", {}).items():
+            if  piece.flags.get(flag, False) != valeur_attendue:
+                print("Tu ne peux pas faire ça pour le moment")
+                return
+
+        # Modifier les flags de la pièce actuelle
+        for flag, valeur in regle.get("set_flags", {}).items():
+            piece.flags[flag] = valeur
+
+        # Révéler des sorties
+        for direction, id_piece in regle.get("revele_sorties", {}).items():
+            piece.ajouter_sortie(direction, self.monde[id_piece])
+            self.monde[id_piece].ajouter_sortie("monter", piece)
+
+        print(regle.get("message", "Action effectuée."))
+
 
 
 def creer_monde():
@@ -251,7 +295,7 @@ def creer_monde():
     devant_maison.ajouter_sortie("nord", foret)
 
     salon.ajouter_sortie("sortir", devant_maison)
-    salon.ajouter_sortie("descendre", cave)
+#    salon.ajouter_sortie("descendre", cave)
 
     cave.ajouter_sortie("monter", salon)
 
@@ -269,32 +313,43 @@ def creer_monde():
     lampe = Objet("lampe", "Une vieille lampe possiéreuse")
     lampe.props = {"lumiere": True, "allumable": True}
     lampe.etat["allumee"] = False
-    tapis = object("tapis", "Un grand tapis d'orient au centre de la pièce")
+    tapis = Objet("tapis", "Un grand tapis d'orient au centre de la pièce")
     tapis.props = {"deplacable": True}
-    tapis.action["deplacer"] = {
+    tapis.actions["deplacer"] = {
         "message": "Tu déplaces le tapis. Une trappe apparaît sur le sol",
-        "set_flags": {"tapis_deplace": True},
-        "revele_sorties": {"descendre": "cave"}
+        "set_flags": {"tapis_deplace": True, "trappe_visible": True}
+#        "revele_sorties": {"descendre": "cave"}
     }
     corde = Objet("corde", "Une corde usée, mais solide")
     boite = Objet("boîte aux lettres", "Une boîte aux lettres ouverte", portable=False)
+    trappe = Objet("trappe", "Une trappe en bois, partiellement cachée sous le tapis apparaît sur le sol", portable=False)
+    trappe.actions["ouvrir"] = {
+        "message": "Tu ouvres la trappe. Un escalier descend dans l'obscurité",
+        "conditions": {"flags": {"trappe_visible": True}},
+        "set_flags": {"trappe_ouverte": True},
+        "revele_sorties": {"descendre": "cave"}
+    }
 
     # Localisation objets
     devant_maison.ajouter_objet(boite)
     salon.ajouter_objet(lampe)
+    salon.ajouter_objet(tapis)
+    salon.ajouter_objet(trappe)
     cave.ajouter_objet(corde)
 
     # États locaux (pièces)
     cave.flags["sombre"] = True
     salon.flags["tapis déplacé"] = False
+    salon.flags["trappe visible"] = False
+    salon.flags["trappe ouverte"] = False
 
 
     # Point d'entrée        
-    return devant_maison    
+    return monde    
 
 
 # main
 if __name__ == "__main__" :
-    piece_depart = creer_monde()
-    jeu = Engine(piece_depart)
+    monde = creer_monde()
+    jeu = Engine(monde)
     jeu.lancer()
