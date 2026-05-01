@@ -343,10 +343,43 @@ class Engine:
 
 
 def creer_monde():
-    devant_maison = Piece(
-        "Devant la maison",
-        "Tu es devant une petite maison blanche. Une porte mène vers l'intérieur."
+    clairiere_2 = Piece(
+        "Clairière",
+        "tu es dans une petite clairière, sur un sentier forestier bien balisé qui s'étend vers l'est et vers l'ouest"
     )
+
+    foret_1 = Piece(
+        "Forêt",
+        "C'est une forêt, avec des arbres à perte de vue. À l'est, on dirait qu'il y a de la lumière du soleil"
+    )
+    foret_3 = Piece(
+        "Forêt",
+        "C'est une forêt peu éclairée, entourée de grands arbres"
+    )
+    foret_sentier = Piece(
+        "Chemin forestier",
+        "C'est un sentier qui serpente à travers une forêt faiblement éclairée. Ici, le sentier s'étend du nord au sud. Un arbre particulièrement imposant, dont certaines branches sont basses, se dresse au bord du sentier."
+    )
+
+    maison_derriere = Piece(
+        "Derrière la maison",
+        "Tu es derrière la maison blanche. Un sentier mène vers la forêt, à l'est. Dans un coin de la maison, il y a une petite fenêtre légèrement entrouverte."
+    )
+
+    maison_nord = Piece(
+        "Nord de la maison",
+        "Tu es face à la façade nord d'une maison blanche. Il n'y a pas de porte à cet endroit, et toutes les fenêtres sont condamnées. Au nord, un sentier étroit serpente à travers les arbres."
+    )
+    maison_ouest = Piece(
+        "Ouest de la maison",
+        "Tu es dans un champ à l'ouest d'une maison blanche dont la porte d'entrée est condamnée."
+    )
+
+    maison_sud = Piece(
+        "Sud de la maison",
+        "Tu es face à la façade sud d'une maison blanche. Il n'y a pas de porte à cet endroit, et toutes les fenêtres sont condamnées."
+    )
+    
     salon = Piece(
         "Salon",
         "Tu es dans un vieux salon poussiéreux. Un tapis usé recouvre le sol."
@@ -357,28 +390,61 @@ def creer_monde():
         "Tu es dans une cave sombre et humide. L'air sent la pierre froide."
     )
 
-    foret = Piece(
-        "Forêt",
-        "Tu es dans une forêt calme. Les arbres entourent la maison"
-    )
-
     # Sorties
-    devant_maison.ajouter_sortie("entrer", salon)
-    devant_maison.ajouter_sortie("nord", foret)
 
-    salon.ajouter_sortie("sortir", devant_maison)
-#    salon.ajouter_sortie("descendre", cave)
+# manque    clairiere_2.ajouter_sortie("nord": foret_2)
+# manque    clairiere_2.ajouter_sortie("est": vue_canyon)
+    clairiere_2.ajouter_sortie("sud", foret_3)
+    clairiere_2.ajouter_sortie("ouest", maison_derriere)
+
+# manque    foret_1.ajouter_sortie("nord", clairiere_1)
+    foret_1.ajouter_sortie("est", foret_sentier)
+    foret_1.ajouter_sortie("sud", foret_3)
+
+    foret_3.ajouter_sortie("nord", clairiere_2)
+    foret_3.ajouter_sortie("ouest", foret_1)
+    foret_3.ajouter_sortie("nord-ouest", maison_sud)
+
+# manque    foret_sentier.ajouter_sortie("nord", clairiere_1)
+# manque    foret_sentier.ajouter_sortie("est", foret_2)
+    foret_sentier.ajouter_sortie("sud", maison_nord)
+    foret_sentier.ajouter_sortie("ouest", foret_1)
+# manque    foret_sentier.ajouter_sortie("grimper", arbre_haut)
+
+    maison_derriere.ajouter_sortie("entrer", salon)
+    maison_derriere.ajouter_sortie("nord", maison_nord)
+    maison_derriere.ajouter_sortie("est", clairiere_2)
+    maison_derriere.ajouter_sortie("sud", maison_sud)
+
+    maison_nord.ajouter_sortie("nord", foret_sentier)
+    maison_nord.ajouter_sortie("est", maison_derriere)
+    maison_nord.ajouter_sortie("ouest", maison_ouest)
+
+    maison_ouest.ajouter_sortie("nord", maison_nord)
+    maison_ouest.ajouter_sortie("sud", maison_sud)
+    maison_ouest.ajouter_sortie("ouest", foret_1)
+
+    maison_sud.ajouter_sortie("est", maison_derriere)
+    maison_sud.ajouter_sortie("sud", foret_3)
+    maison_sud.ajouter_sortie("ouest", maison_ouest)
+
+    salon.ajouter_sortie("sortir", maison_derriere)
+#   caché : salon.ajouter_sortie("descendre", cave)
 
     cave.ajouter_sortie("monter", salon)
 
-    foret.ajouter_sortie("sud", devant_maison)
-
     # Monde
     monde = {
-        "depart": devant_maison,
+        "depart": maison_ouest,
+        "clairiere_2": clairiere_2,
+        "foret_1": foret_1,
+        "foret_3": foret_3,
+        "foret_sentier": foret_sentier,
+        "maison_nord": maison_nord,
+        "maison_sud": maison_sud,
+        "maison_derriere": maison_derriere,
         "salon": salon,
-        "cave": cave,
-        "foret": foret
+        "cave": cave
     }
 
     # Objets
@@ -405,7 +471,7 @@ def creer_monde():
     }
 
     # Localisation objets
-    devant_maison.ajouter_objet(boite)
+    maison_ouest.ajouter_objet(boite)
     salon.ajouter_objet(lampe)
     salon.ajouter_objet(tapis)
     salon.ajouter_objet(trappe)
