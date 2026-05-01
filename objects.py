@@ -56,7 +56,7 @@ class Joueur:
 
     def trouver_objet(self, nom):
         for objet in self.inventaire:
-            if  objet.nom == nom:
+            if  objet.nom == nom and objet.props.get("visible", True):
                 return objet
         return None
 
@@ -68,6 +68,10 @@ class Engine:
         self.en_cours = True
         self.tours_dans_le_noir = 0
 
+# -------------------------------------------------------
+#               Coeur du moteur
+# -------------------------------------------------------
+
     def lancer(self):
         print("Bienvenue")
         self.decrire_position()
@@ -77,22 +81,8 @@ class Engine:
             self.traiter_commande(commande)
 
             if  self.en_cours:
-                self.gerer_obscurite()
                 self.decrementer_lampe()
-
-
-    def trouver_objet_global(self, nom_objet):
-        piece = self.joueur.position
-
-        objet = piece.trouver_objet(nom_objet)
-        if  objet:
-            return objet, "piece"
-        
-        objet = self.joueur.trouver_objet(nom_objet)
-        if  objet:
-            return objet, "inventaire"
-        
-        return None, None
+                self.gerer_obscurite()
 
     def traiter_commande(self, commande):
         if  commande == "":
@@ -126,6 +116,10 @@ class Engine:
         else:
             # pour nord, sud, est, ouest, entrer, sortir, monter, descendre ...        
             self.aller(commande)
+
+# -------------------------------------------------------
+#               Verbes du joueur
+# -------------------------------------------------------
 
     def aller(self, direction):
         # direction = self.direction
@@ -214,78 +208,13 @@ class Engine:
         piece.objets.append(objet)
         print(f"Tu poses {objet.nom}")
 
-    def gerer_obscurite(self):
-        piece = self.joueur.position
+# -------------------------------------------------------
+#               Gestion des actions
+# -------------------------------------------------------
 
-        if  not piece.flags.get("sombre", False):
-            self.tours_dans_le_noir = 0
-            return
-        
-        if  self.joueur_a_lumiere():
-            self.tours_dans_le_noir = 0
-            return
-        
-        self.tours_dans_le_noir += 1
-
-        if  self.tours_dans_le_noir == 1:
-            print("Il fait noir. Tu risques d'être mangé par une Grue.")
-            return
-
-        if  self.tours_dans_le_noir >= 2:
-            if  random.randint(1, 100) <= 50:
-                print("Tu entends un bruit dans l'obscurité...")
-                print()
-                print("Une Grue t'a dévoré")
-                self.en_cours = False
-            else:
-                print("Tu tâtonnes dans le noir. Ce n'est pas prudent.")
-
-    def decrementer_lampe(self):
-        piece = self.joueur.position
-
-        for objet in self.joueur.inventaire:
-            if  objet.props.get("lumiere", False) and objet.etat.get("allumee", False):
-                objet.etat["duree"] -= 1
-
-                if  objet.etat["duree"] == 3:
-                    print("La lampe faiblit")
-
-                if  objet.etat["duree"] <= 0:
-                    objet.etat["allumee"] = False
-                    objet.etat["duree"] = 0
-                    print("La lampe s'éteint")
-                    if  piece.flags.get("sombre", False):
-                        print("Il fait nuit noire. Tu risques fort de te faire dévorer par un grue.")
-
-
-
-    def decrire_position(self):
-        piece:Piece = self.joueur.position
-
-        if  piece.flags.get("sombre", False) and not self.joueur_a_lumiere():
-            print("Il fait trop sombre pour voir quoi que ce soit")
-            return
-        
-        piece.decrire()
-
-    def joueur_a_lumiere(self):
-        # lumière portée dans l'inventaire
-        for objet in self.joueur.inventaire:
-            if  objet.props.get("lumiere", False) and objet.etat.get("allumee", False):
-                return True
-            
-        # lumière dans la pièce
-        for objet in self.joueur.position.objets:
-            if  objet.props.get("lumiere", False) and objet.etat.get("allumee", False):
-                return True
-
-        return False
-    
     def executer_action_objet(self, action, nom_objet):
         piece:Piece = self.joueur.position
         objet:Objet = piece.trouver_objet(nom_objet)              # cherche objet dans Piece
-#        print(piece.nom)
-#        print(objet)
 
         if  objet is None:                                  # rien trouvé dans la pièce
             objet = self.joueur.trouver_objet(nom_objet)    # cherche objet dans l'inventaire
@@ -324,6 +253,92 @@ class Engine:
             self.monde[id_piece].ajouter_sortie("monter", piece)
 
         print(regle.get("message", "Action effectuée."))
+
+# -------------------------------------------------------
+#               Fonctions utilitaires
+# -------------------------------------------------------
+
+    def decrire_position(self):
+        piece:Piece = self.joueur.position
+
+        if  piece.flags.get("sombre", False) and not self.joueur_a_lumiere():
+            print("Il fait trop sombre pour voir quoi que ce soit")
+            return
+        
+        piece.decrire()
+
+    def trouver_objet_global(self, nom_objet):
+        piece = self.joueur.position
+
+        objet = piece.trouver_objet(nom_objet)
+        if  objet:
+            return objet, "piece"
+        
+        objet = self.joueur.trouver_objet(nom_objet)
+        if  objet:
+            return objet, "inventaire"
+        
+        return None, None
+
+    def joueur_a_lumiere(self):
+        # lumière portée dans l'inventaire
+        for objet in self.joueur.inventaire:
+            if  objet.props.get("lumiere", False) and objet.etat.get("allumee", False):
+                return True
+            
+        # lumière dans la pièce
+        for objet in self.joueur.position.objets:
+            if  objet.props.get("lumiere", False) and objet.etat.get("allumee", False):
+                return True
+
+        return False
+    
+# -------------------------------------------------------
+#               Évènements automatiques
+# -------------------------------------------------------
+    
+    def decrementer_lampe(self):
+        piece = self.joueur.position
+
+        for objet in self.joueur.inventaire:
+            if  objet.props.get("lumiere", False) and objet.etat.get("allumee", False):
+                objet.etat["duree"] -= 1
+
+                if  objet.etat["duree"] == 3:
+                    print("La lampe faiblit")
+
+                if  objet.etat["duree"] <= 0:
+                    objet.etat["allumee"] = False
+                    objet.etat["duree"] = 0
+                    print("La lampe s'éteint")
+                    if  piece.flags.get("sombre", False):
+                        print("Il fait nuit noire. Tu risques fort de te faire dévorer par un grue.")
+
+    def gerer_obscurite(self):
+        piece = self.joueur.position
+
+        if  not piece.flags.get("sombre", False):
+            self.tours_dans_le_noir = 0
+            return
+        
+        if  self.joueur_a_lumiere():
+            self.tours_dans_le_noir = 0
+            return
+        
+        self.tours_dans_le_noir += 1
+
+        if  self.tours_dans_le_noir == 1:
+            print("Il fait noir. Tu risques d'être mangé par une Grue.")
+            return
+
+        if  self.tours_dans_le_noir >= 2:
+            if  random.randint(1, 100) <= 50:
+                print("Tu entends un bruit dans l'obscurité...")
+                print()
+                print("Une Grue t'a dévoré")
+                self.en_cours = False
+            else:
+                print("Tu tâtonnes dans le noir. Ce n'est pas prudent.")
 
 
 
@@ -376,7 +391,7 @@ def creer_monde():
     tapis.actions["deplacer"] = {
         "message": "Tu déplaces le tapis. Une trappe apparaît sur le sol",
         "set_flags": {"tapis_deplace": True, "trappe_visible": True},
-        "set_objets_props": {"trappe": {"visible": True}}
+        "set_objet_props": {"trappe": {"visible": True}}
     }
     corde = Objet("corde", "Une corde usée, mais solide")
     boite = Objet("boîte aux lettres", "Une boîte aux lettres ouverte", portable=False)
@@ -398,9 +413,9 @@ def creer_monde():
 
     # États locaux (pièces)
     cave.flags["sombre"] = True
-    salon.flags["tapis déplacé"] = False
-    salon.flags["trappe visible"] = False
-    salon.flags["trappe ouverte"] = False
+    salon.flags["tapis_déplacé"] = False
+    salon.flags["trappe_visible"] = False
+    salon.flags["trappe_ouverte"] = False
 
 
     # Point d'entrée        
