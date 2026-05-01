@@ -1,3 +1,5 @@
+import random   # après split en plusieurs fichiers,mettre dans Engine.py
+
 class Piece:
     def __init__(self, nom, description):
         self.nom = nom
@@ -28,7 +30,8 @@ class Piece:
 
         if  self.objets:
             for objet in self.objets:
-                print(f"Il y a {objet.description} ici")
+                if  objet.props.get("visible", True):
+                        print(f"Il y a {objet.description} ici")
 
         if self.sorties:
             print("Sorties :", ", ".join(self.sorties.keys()))
@@ -63,16 +66,20 @@ class Engine:
         self.monde = monde
         self.joueur = Joueur(monde["depart"])
         self.en_cours = True
+        self.tours_dans_le_noir = 0
 
     def lancer(self):
         print("Bienvenue")
-
-#        self.joueur.position.decrire()
         self.decrire_position()
 
         while self.en_cours:
             commande = input("\n ").strip().lower()
             self.traiter_commande(commande)
+
+            if  self.en_cours:
+                self.gerer_obscurite()
+                self.decrementer_lampe()
+
 
     def trouver_objet_global(self, nom_objet):
         piece = self.joueur.position
@@ -207,6 +214,50 @@ class Engine:
         piece.objets.append(objet)
         print(f"Tu poses {objet.nom}")
 
+    def gerer_obscurite(self):
+        piece = self.joueur.position
+
+        if  not piece.flags.get("sombre", False):
+            self.tours_dans_le_noir = 0
+            return
+        
+        if  self.joueur_a_lumiere():
+            self.tours_dans_le_noir = 0
+            return
+        
+        self.tours_dans_le_noir += 1
+
+        if  self.tours_dans_le_noir == 1:
+            print("Il fait noir. Tu risques d'être mangé par une Grue.")
+            return
+
+        if  self.tours_dans_le_noir >= 2:
+            if  random.randint(1, 100) <= 50:
+                print("Tu entends un bruit dans l'obscurité...")
+                print()
+                print("Une Grue t'a dévoré")
+                self.en_cours = False
+            else:
+                print("Tu tâtonnes dans le noir. Ce n'est pas prudent.")
+
+    def decrementer_lampe(self):
+        piece = self.joueur.position
+
+        for objet in self.joueur.inventaire:
+            if  objet.props.get("lumiere", False) and objet.etat.get("allumee", False):
+                objet.etat["duree"] -= 1
+
+                if  objet.etat["duree"] == 3:
+                    print("La lampe faiblit")
+
+                if  objet.etat["duree"] <= 0:
+                    objet.etat["allumee"] = False
+                    objet.etat["duree"] = 0
+                    print("La lampe s'éteint")
+                    if  piece.flags.get("sombre", False):
+                        print("Il fait nuit noire. Tu risques fort de te faire dévorer par un grue.")
+
+
 
     def decrire_position(self):
         piece:Piece = self.joueur.position
@@ -261,6 +312,12 @@ class Engine:
         for flag, valeur in regle.get("set_flags", {}).items():
             piece.flags[flag] = valeur
 
+        # Modifier propriétés d'objets
+        for nom_objet, props in regle.get("set_objet_props", {}).items():
+            for obj in piece.objets:
+                if  obj.nom == nom_objet:
+                    obj.props.update(props)
+
         # Révéler des sorties
         for direction, id_piece in regle.get("revele_sorties", {}).items():
             piece.ajouter_sortie(direction, self.monde[id_piece])
@@ -313,16 +370,18 @@ def creer_monde():
     lampe = Objet("lampe", "Une vieille lampe possiéreuse")
     lampe.props = {"lumiere": True, "allumable": True}
     lampe.etat["allumee"] = False
+    lampe.etat["duree"] = 20            #nombre de tours
     tapis = Objet("tapis", "Un grand tapis d'orient au centre de la pièce")
     tapis.props = {"deplacable": True}
     tapis.actions["deplacer"] = {
         "message": "Tu déplaces le tapis. Une trappe apparaît sur le sol",
-        "set_flags": {"tapis_deplace": True, "trappe_visible": True}
-#        "revele_sorties": {"descendre": "cave"}
+        "set_flags": {"tapis_deplace": True, "trappe_visible": True},
+        "set_objets_props": {"trappe": {"visible": True}}
     }
     corde = Objet("corde", "Une corde usée, mais solide")
     boite = Objet("boîte aux lettres", "Une boîte aux lettres ouverte", portable=False)
-    trappe = Objet("trappe", "Une trappe en bois, partiellement cachée sous le tapis apparaît sur le sol", portable=False)
+    trappe = Objet("trappe", "Une trappe en bois apparaît sur le sol", portable=False)
+    trappe.props = {"visible": False}
     trappe.actions["ouvrir"] = {
         "message": "Tu ouvres la trappe. Un escalier descend dans l'obscurité",
         "conditions": {"flags": {"trappe_visible": True}},
