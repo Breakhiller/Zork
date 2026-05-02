@@ -77,7 +77,7 @@ class Engine:
         self.decrire_position()
 
         while self.en_cours:
-            commande = input("\n ").strip().lower()
+            commande = input("\n>").strip().lower()
             self.traiter_commande(commande)
 
             if  self.en_cours:
@@ -343,6 +343,27 @@ class Engine:
 
 
 def creer_monde():
+    canyon_vue = Piece(
+        "Vue sur le canyon",
+        "Tu te trouves au sommet du Grand Canyon, sur sa paroi ouest. De là, vous avez une vue magnifique sur le canyon et sur certaines parties de la rivière Frigid en amont. De l'autre côté du canyon, les parois des White Cliffs rejoignent les imposants remparts des Flathead Mountains à l'est. En remontant le canyon vers le nord, on peut apercevoir les chutes d'Aragain, avec un arc-en-ciel. La puissante rivière Frigid jaillit d'une immense caverne sombre. À l'ouest et au sud, on aperçoit une immense forêt qui s'étend sur des kilomètres à la ronde. Un sentier mène vers le nord-ouest. Il est possible de descendre dans le canyon depuis cet endroit."
+    )
+    corniche = Piece(
+        "Rebord rocheux",
+        "Tu te trouves sur une corniche à mi-hauteur de la paroi du canyon. D'ici, vous pouvez voir que le courant principal des chutes d'Aragain serpente le long d'un passage dans lequel il vous est impossible de pénétrer. En contrebas se trouve le fond du canyon. Au-dessus de vous s'étend une autre falaise, qui semble escaladable."
+    )
+    canyon_bas = Piece(
+        "Bas du canyon",
+        "Tu te trouves au pied des parois du canyon, qui semblent escaladables à cet endroit. Une petite partie du débit des chutes d'Aragain s'écoule en contrebas. Au nord se trouve un sentier étroit."
+    )
+    bout_arc_en_ciel = Piece(
+        "Bout de l'arc-en-ciel",
+        "Tu te trouves sur une petite plage rocheuse, au-delà des chutes, là où la rivière Frigid se poursuit. La plage est étroite en raison de la présence des falaises blanches. Le canyon de la rivière s'ouvre ici et la lumière du soleil pénètre par le haut. Un arc-en-ciel enjambe les chutes à l'est et un sentier étroit continue vers le sud-ouest."
+    )
+
+    clairiere_1 = Piece(
+        "Clairière",
+        "Tu te trouves dans une clairière, entourée de forêt de tous côtés. Un sentier mène vers le sud.    "
+    )
     clairiere_2 = Piece(
         "Clairière",
         "tu es dans une petite clairière, sur un sentier forestier bien balisé qui s'étend vers l'est et vers l'ouest"
@@ -352,20 +373,31 @@ def creer_monde():
         "Forêt",
         "C'est une forêt, avec des arbres à perte de vue. À l'est, on dirait qu'il y a de la lumière du soleil"
     )
+    foret_2 = Piece(
+        "Foret",
+        "C'est une forêt peu éclairée, entourée de grands arbres"
+    )
     foret_3 = Piece(
         "Forêt",
         "C'est une forêt peu éclairée, entourée de grands arbres"
     )
+    foret_4 = Piece(
+        "Forêt",
+        "La forêt s'éclaircit, laissant apparaître des montagnes infranchissables."
+    )
     foret_sentier = Piece(
         "Chemin forestier",
         "C'est un sentier qui serpente à travers une forêt faiblement éclairée. Ici, le sentier s'étend du nord au sud. Un arbre particulièrement imposant, dont certaines branches sont basses, se dresse au bord du sentier."
+    )
+    arbre = Piece(
+        "Dans un arbre",
+        "Tu te trouves à environ trois mètres du sol, niché parmi de grosses branches. La branche la plus proche au-dessus de toi est hors de ta portée. À côté de toi, sur la branche, se trouve un petit nid d'oiseau."
     )
 
     maison_derriere = Piece(
         "Derrière la maison",
         "Tu es derrière la maison blanche. Un sentier mène vers la forêt, à l'est. Dans un coin de la maison, il y a une petite fenêtre légèrement entrouverte."
     )
-
     maison_nord = Piece(
         "Nord de la maison",
         "Tu es face à la façade nord d'une maison blanche. Il n'y a pas de porte à cet endroit, et toutes les fenêtres sont condamnées. Au nord, un sentier étroit serpente à travers les arbres."
@@ -374,44 +406,76 @@ def creer_monde():
         "Ouest de la maison",
         "Tu es dans un champ à l'ouest d'une maison blanche dont la porte d'entrée est condamnée."
     )
-
     maison_sud = Piece(
         "Sud de la maison",
         "Tu es face à la façade sud d'une maison blanche. Il n'y a pas de porte à cet endroit, et toutes les fenêtres sont condamnées."
     )
-    
+    cuisine = Piece(
+        "Cuisine",
+        "Tu te trouves dans la cuisine de la maison blanche. Une table semble avoir servi récemment à la préparation des repas. Un couloir mène vers l'ouest et on aperçoit un escalier sombre qui monte. Une cheminée sombre descend et, à l'est, se trouve une petite fenêtre ouverte."
+    )
+    grenier = Piece(
+        "Grenier",
+        "C'est le grenier. La seule sortie est un escalier qui descend."
+    )
     salon = Piece(
         "Salon",
         "Tu es dans un vieux salon poussiéreux. Un tapis usé recouvre le sol."
     )
-
     cave = Piece(
         "Cave",
         "Tu es dans une cave sombre et humide. L'air sent la pierre froide."
     )
 
     # Sorties
+    canyon_vue.ajouter_sortie("ouest", foret_3)
+    canyon_vue.ajouter_sortie("nord-ouest", clairiere_2)
+    canyon_vue.ajouter_sortie("descendre", corniche)
 
-# manque    clairiere_2.ajouter_sortie("nord": foret_2)
-# manque    clairiere_2.ajouter_sortie("est": vue_canyon)
+    corniche.ajouter_sortie("monter", canyon_vue)
+    corniche.ajouter_sortie("descendre", canyon_bas)
+
+    canyon_bas.ajouter_sortie("nord", bout_arc_en_ciel)
+    canyon_bas.ajouter_sortie("monter", corniche)
+
+    bout_arc_en_ciel.ajouter_sortie("nord-ouest", canyon_bas)
+# manque caché    bout_arc_en_ciel.ajouter_sortie("monter",arc_en_ciel)
+
+    clairiere_1.ajouter_sortie("est", foret_2)
+    clairiere_1.ajouter_sortie("sud", foret_sentier)
+    clairiere_1.ajouter_sortie("ouest", foret_1)
+# manque, caché    clairiere_1.ajouter_objet("descendre", grille_salle)
+
+    clairiere_2.ajouter_sortie("nord", foret_2)
+    clairiere_2.ajouter_sortie("est", canyon_vue)
     clairiere_2.ajouter_sortie("sud", foret_3)
     clairiere_2.ajouter_sortie("ouest", maison_derriere)
 
-# manque    foret_1.ajouter_sortie("nord", clairiere_1)
+    foret_1.ajouter_sortie("nord", clairiere_1)
     foret_1.ajouter_sortie("est", foret_sentier)
     foret_1.ajouter_sortie("sud", foret_3)
+
+    foret_2.ajouter_sortie("est", foret_4)
+    foret_2.ajouter_sortie("sud", clairiere_2)
+    foret_2.ajouter_sortie("ouest", foret_sentier)
 
     foret_3.ajouter_sortie("nord", clairiere_2)
     foret_3.ajouter_sortie("ouest", foret_1)
     foret_3.ajouter_sortie("nord-ouest", maison_sud)
 
-# manque    foret_sentier.ajouter_sortie("nord", clairiere_1)
-# manque    foret_sentier.ajouter_sortie("est", foret_2)
+    foret_4.ajouter_sortie("nord", foret_2)
+    foret_4.ajouter_sortie("sud", foret_2)
+    foret_4.ajouter_sortie("ouest", foret_2)
+
+    foret_sentier.ajouter_sortie("nord", clairiere_1)
+    foret_sentier.ajouter_sortie("est", foret_2)
     foret_sentier.ajouter_sortie("sud", maison_nord)
     foret_sentier.ajouter_sortie("ouest", foret_1)
-# manque    foret_sentier.ajouter_sortie("grimper", arbre_haut)
+    foret_sentier.ajouter_sortie("monter", arbre)
 
-    maison_derriere.ajouter_sortie("entrer", salon)
+    arbre.ajouter_sortie("descendre", foret_sentier)
+
+    maison_derriere.ajouter_sortie("entrer", cuisine)
     maison_derriere.ajouter_sortie("nord", maison_nord)
     maison_derriere.ajouter_sortie("est", clairiere_2)
     maison_derriere.ajouter_sortie("sud", maison_sud)
@@ -428,7 +492,13 @@ def creer_monde():
     maison_sud.ajouter_sortie("sud", foret_3)
     maison_sud.ajouter_sortie("ouest", maison_ouest)
 
-    salon.ajouter_sortie("sortir", maison_derriere)
+    cuisine.ajouter_sortie("est", maison_derriere)
+    cuisine.ajouter_sortie("ouest", salon)
+    cuisine.ajouter_sortie("monter", grenier)
+
+    grenier.ajouter_sortie("descendre", cuisine)
+
+    salon.ajouter_sortie("est", cuisine)
 #   caché : salon.ajouter_sortie("descendre", cave)
 
     cave.ajouter_sortie("monter", salon)
@@ -436,23 +506,49 @@ def creer_monde():
     # Monde
     monde = {
         "depart": maison_ouest,
+        "canyon_vue": canyon_vue,
+        "corniche": corniche,
+        "canyon_bas": canyon_bas,
+        "bout_arc_en_ciel": bout_arc_en_ciel,
+        "clairiere_1": clairiere_1,
         "clairiere_2": clairiere_2,
         "foret_1": foret_1,
+        "foret_2": foret_2,
         "foret_3": foret_3,
+        "foret_4": foret_4,
         "foret_sentier": foret_sentier,
+        "arbre": arbre,
         "maison_nord": maison_nord,
         "maison_sud": maison_sud,
         "maison_derriere": maison_derriere,
+        "cuisine": cuisine,
+        "grenier": grenier,
         "salon": salon,
         "cave": cave
     }
 
     # Objets
-    lampe = Objet("lampe", "Une vieille lampe possiéreuse")
+    boite = Objet("boîte aux lettres", "une boîte aux lettres ouverte", portable=False)
+    boite.props["ouvrable"] = True
+    boite.props["ouverte"] = False
+    boite.actions["ouvrir"] = {
+        "message": "La boîte aux lettres est ouverte",
+        "set_flags": {"boite_ouverte": True}
+    }
+    depliant = Objet("dépliant", "un dépliant")
+    feuilles = Objet("feuilles", "un tas de feuilles sur le sol", portable=False)
+    feuilles.actions["deplacer"] = {
+        "message": "Il y a une grille solidement fixée au sol",
+        "set_flags": {"feuilles_deplacees": True},
+        "set_objet_props": {"grille": {"visible": True}}      
+    }
+    grille = Objet("grille", "une grille fortement fixée au sol", portable=False)
+    grille.props = {"visible": False}
+    lampe = Objet("lampe", "une vieille lampe possiéreuse")
     lampe.props = {"lumiere": True, "allumable": True}
     lampe.etat["allumee"] = False
     lampe.etat["duree"] = 20            #nombre de tours
-    tapis = Objet("tapis", "Un grand tapis d'orient au centre de la pièce")
+    tapis = Objet("tapis", "un grand tapis d'orient au centre de la pièce")
     tapis.props = {"deplacable": True}
     tapis.actions["deplacer"] = {
         "message": "Tu déplaces le tapis. Une trappe apparaît sur le sol",
@@ -460,7 +556,7 @@ def creer_monde():
         "set_objet_props": {"trappe": {"visible": True}}
     }
     corde = Objet("corde", "Une corde usée, mais solide")
-    boite = Objet("boîte aux lettres", "Une boîte aux lettres ouverte", portable=False)
+# à gérer plus tard    fenetre = object("fenetre", )
     trappe = Objet("trappe", "Une trappe en bois apparaît sur le sol", portable=False)
     trappe.props = {"visible": False}
     trappe.actions["ouvrir"] = {
@@ -472,6 +568,10 @@ def creer_monde():
 
     # Localisation objets
     maison_ouest.ajouter_objet(boite)
+    
+    clairiere_1.ajouter_objet(feuilles)
+    clairiere_1.ajouter_objet(grille)
+    cuisine.ajouter_objet
     salon.ajouter_objet(lampe)
     salon.ajouter_objet(tapis)
     salon.ajouter_objet(trappe)
@@ -479,6 +579,7 @@ def creer_monde():
 
     # États locaux (pièces)
     cave.flags["sombre"] = True
+    clairiere_1.flags["feuilles_deplacees"] = False
     salon.flags["tapis_déplacé"] = False
     salon.flags["trappe_visible"] = False
     salon.flags["trappe_ouverte"] = False
