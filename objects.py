@@ -1,4 +1,16 @@
-import random   # après split en plusieurs fichiers,mettre dans Engine.py
+import random   # après split en plusieurs fichiers,mettre dans Engine.py, ainsi que les aliases
+
+ALIASES = {
+    "n": "nord",
+    "s": "sud",
+    "e": "est",
+    "o": "ouest",
+    "w": "ouest",
+    "m": "monter",
+    "u": "monter",
+    "grimper": "monter",
+    "d": "descendre"
+}
 
 class Piece:
     def __init__(self, nom, description):
@@ -7,6 +19,7 @@ class Piece:
         self.sorties = {}
         self.objets = []
         self.flags = {}
+        self.visitee = False
 
     def ajouter_sortie(self, direction, piece_destination):
         self.sorties[direction] = piece_destination
@@ -24,10 +37,12 @@ class Piece:
         print()
         print(self.nom)
         print(self.description)
+        self.decrire_objets()
 
-#        if  self.objets:
-#            print("Objets visibles :",", ".join(objet.nom for objet in self.objets))
+#        if self.sorties:
+#            print("Sorties :", ", ".join(self.sorties.keys()))
 
+    def decrire_objets(self):
         if  self.objets:
             for objet in self.objets:
                 if  objet.props.get("visible", True):
@@ -46,9 +61,6 @@ class Piece:
                                     print(f"Dans {objet.nom}, tu vois :")
                                     for obj in objet.contenu:
                                         print(f"- {obj.description}")
-
-#        if self.sorties:
-#            print("Sorties :", ", ".join(self.sorties.keys()))
 
 
 class Objet:
@@ -112,6 +124,7 @@ class Engine:
 
     def lancer(self):
         print("Bienvenue")
+        print("Tape 'aide' pour voir les commandes.\n")
         self.decrire_position()
 
         while self.en_cours:
@@ -131,8 +144,16 @@ class Engine:
             print("Fin de la partie")
             return
         
+        if  commande in ("aide", "help"):
+            self.afficher_aide()
+            return
+        
+        if  commande in ("inventaire", "inv", "i"):
+            self.afficher_inventaire()
+            return
+        
         if  commande in("regarder", "look"):
-            self.decrire_position()
+            self.decrire_position(complet = True)
             return
         
         # traitement mettre ou poser un objet dans ou sur un conteneur
@@ -173,8 +194,23 @@ class Engine:
 #               Verbes du joueur
 # -------------------------------------------------------
 
+    def afficher_aide(self):
+        print("Commandes disponibles :")
+        print("nord, sud, est, ouest, entrer, sortir, monter, descendre")
+        print("regarder, examiner")
+        print("prendre, poser, poser objet sur support, mettre objet dans conteneur")
+        print("aide, inventaire, quitter")
+
+    def afficher_inventaire(self):
+        if  self.joueur.inventaire:
+            print("Tu portes :")
+            for obj in self.joueur.inventaire:
+                print(f"- {obj.description}")
+        else:
+            print("Tu ne portes rien.")
+
     def aller(self, direction):
-        # direction = self.direction
+        direction = self.normaliser_direction(direction)
         piece = self.joueur.position
 
         if  direction in piece.sorties:
@@ -395,6 +431,9 @@ class Engine:
 #               Fonctions utilitaires
 # -------------------------------------------------------
 
+    def normaliser_direction(self, direction):
+        return ALIASES.get(direction, direction)
+
     def afficher_contenu_objet(self, objet):
 #        print("on est dans afficher_contenu_objet")
         if  objet.props.get("support", False):
@@ -428,14 +467,21 @@ class Engine:
             else:
                 print(f"{objet.nom} est vide")
 
-    def decrire_position(self):
+    def decrire_position(self, complet = False):
         piece:Piece = self.joueur.position
 
         if  piece.flags.get("sombre", False) and not self.joueur_a_lumiere():
             print("Il fait trop sombre pour voir quoi que ce soit")
             return
         
-        piece.decrire()
+        print
+        print(piece.nom)
+        
+        if  complet or not piece.visitee:
+            print(piece.description)
+            piece.visitee = True
+
+        piece.decrire_objets()
 
     def conteneur_accessible(self, objet):
         if  not objet.props.get("conteneur", False):
@@ -731,21 +777,23 @@ def creer_monde():
     }
 
     # Objets
-    boite = Objet("boîte aux lettres", "une boîte aux lettres ouverte", portable=False)
-    boite.props["conteneur"] = True
-    boite.props["ouvrable"] = True
-    boite.props["ouverte"] = False
-    boite.actions["ouvrir"] = {
-        "message": "La boîte aux lettres est ouverte",
-        "set_flags": {"boite_ouverte": True}
-    }
-    depliant = Objet("dépliant", "un dépliant")
+    boite = Objet("boîte aux lettres", "une boîte aux lettres", portable=False)
+#    boite.props["conteneur"] = True
+#    boite.props["ouvrable"] = True
+    boite.props = {"conteneur": True, "ouvrable": True}
+    boite.etat["ouvert"] = False
+#    boite.actions["ouvrir"] = {
+#        "message": "La boîte aux lettres est ouverte",
+#        "set_flags": {"boite_ouverte": True}
+#    }
+    depliant = Objet("dépliant", "un dépliant sur lequel est écrit : BIENVENUE A ZORK")
     feuilles = Objet("feuilles", "un tas de feuilles sur le sol", portable=False)
     feuilles.actions["deplacer"] = {
         "message": "Il y a une grille solidement fixée au sol",
         "set_flags": {"feuilles_deplacees": True},
         "set_objet_props": {"grille": {"visible": True}}      
     }
+    oeuf = Objet("oeuf doré", "Un gros œuf incrusté de pierres précieuses, apparemment ramassé par un oiseau chanteur sans progéniture. L'œuf est recouvert d'une fine incrustation d'or et orné de lapis-lazuli et de nacre. Contrairement à la plupart des œufs, celui-ci est articulé et se ferme à l'aide d'un fermoir d'apparence délicate. L'œuf semble extrêmement fragile.")
     grille = Objet("grille", "une grille fortement fixée au sol", portable=False)
     grille.props = {"visible": False}
 
@@ -797,10 +845,9 @@ def creer_monde():
     
     clairiere_1.ajouter_objet(feuilles)
     clairiere_1.ajouter_objet(grille)
+    arbre.ajouter_objet(oeuf)
 
-#    cuisine.ajouter_objet(sac)
     cuisine.ajouter_objet(table)
-#    salon.ajouter_objet(lampe)
     salon.ajouter_objet(tapis)
     salon.ajouter_objet(trappe)
     salon.ajouter_objet(vitrine)
