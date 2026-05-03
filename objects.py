@@ -44,10 +44,31 @@ class Objet:
         self.portable = portable
         self.props = {}                 # ce que l'objet peut faire
         self.etat = {}                  # allumé ou éteint
-        self.actions = {}   
+        self.actions = {}
+        self.contenu = []
+        self.objets_sur = [] 
 
     def __repr__(self):
         return self.nom                 # évite d'avoir un nom eas56e11...
+    
+    def trouver_objet(self, nom):
+        for objet in self.contenu:
+            if  objet.nom == nom and objet.props.get("visible", True):
+                return objet
+        return None
+
+    def trouver_objet_dans(self, nom):
+        for objet in self.contenu:
+            if  objet.nom == nom and objet.props.get("visible", True):
+                return objet
+        return None
+
+    def trouver_objet_sur(self, nom):
+        for objet in self.objets_sur:
+            if  objet.nom == nom and objet.props.get("visible", True):
+                return objet
+        return None
+
 
 class Joueur:
     def __init__(self, position_depart):
@@ -97,6 +118,20 @@ class Engine:
             self.decrire_position()
             return
         
+        # traitement mettre ou poser un objet dans ou sur un conteneur
+        if  commande.startswith("mettre ") and " dans " in commande:
+            reste = commande.replace("mettre ", "" , 1)
+            nom_objet, nom_cible = reste.split(" dans ", 1)
+            self.mettre_dans(nom_objet, nom_cible)
+            return
+        
+        if  commande.startswith("poser ") and " sur " in commande:
+            reste = commande.replace("poser ", "" , 1)
+            nom_objet, nom_cible = reste.split(" sur ", 1)
+            self.mettre_dans(nom_objet, nom_cible)
+            return
+        
+        # cas normaux verbe complément
         mots = commande.split()
         verbe = mots[0]
         complement = " ".join(mots[1:])
@@ -110,7 +145,7 @@ class Engine:
         elif verbe == "examiner":
             self.examiner(complement)
         elif verbe == "ouvrir":
-            self.executer_action_objet("ouvrir", complement)
+            self.ouvrir(complement)
         elif verbe == "poser":
             self.poser(complement)
         else:
@@ -151,7 +186,7 @@ class Engine:
             print("examiner quoi ?")
             return
         
-        objet, origine = self.trouver_objet_global(nom_objet)
+        objet, origine, _ = self.trouver_objet_global(nom_objet)
 
         if  objet is None:
             print("Tu ne vois pas cet objet ici.")
@@ -164,12 +199,52 @@ class Engine:
         
         print(objet.description)
 
+        if  objet.props.get("conteneur", False):
+            if  objet.props.get("ouvrable", False) and not objet.etat.get("ouvert", False):
+                print(f"{nom_objet} est fermé")
+                return
+            
+            if not objet.contenu:
+                print(f"{nom_objet} est vide.")
+                return
+            
+            if  objet.props.get("conteneur"):
+                print(f"Dans {nom_objet}, tu vois :")
+            elif objet.props.get("support"):
+                print(f"Sur {nom_objet}, tu vois")
+            for obj in objet.contenu:
+                print(f"- {obj.description}")
+
+    def ouvrir(self, nom_objet):
+        objet, _, _ = self.trouver_objet_global(nom_objet)
+
+        if  objet is None:
+            print("tu ne vois pas cet objet ici")
+            return
+        
+        # cas spécial entrainant une action (trappe, grille, etc.)
+        if  "ouvrir" in objet.actions:
+            self.executer_action_objet("ouvrir", nom_objet)
+            return
+
+        # cas générique : boite, sac, vitrine, etc.    
+        if  not objet.props.get("ouvrable", False):
+            print("Tu ne peux pas ouvrir ça")
+            return
+        
+        if  objet.etat.get("ouvert", False):
+            print(f"{nom_objet} est déjà ouvert")
+            return
+        
+        objet.etat["ouvert"] = True
+        print(f"Tu ouvres {nom_objet}.")
+
     def prendre(self, nom_objet):
         if  nom_objet == "":
             print("Prendre quoi ?")
             return
 
-        objet, origine = self.trouver_objet_global(nom_objet)
+        objet, origine, source = self.trouver_objet_global(nom_objet)
 
         if  objet is None:
             print("Cet objet n'est pas ici")
@@ -183,17 +258,52 @@ class Engine:
             print("Tu ne peux pas prendre cet objet")
             return
         
-        piece = self.joueur.position
-        piece.objets.remove(objet)
+        if  origine == "piece":
+            source.objets.remove(objet)
+
+        if  origine == "conteneur":
+            source.contenu.remove(objet)    
+        
+#        piece = self.joueur.position
+#        piece.objets.remove(objet)
         self.joueur.inventaire.append(objet)
         print(f"Tu prends {objet.nom}")
+
+    def mettre_dans(self, nom_objet, nom_conteneur):
+        objet, _, source = self.trouver_objet_global(nom_objet)
+
+        if  objet is None:
+            print("Tu n'as pas cet objet")
+            return
+
+        if  source != self.joueur:
+            print("Tu dois d'abord le prendre")
+            return
+        
+        conteneur, _, _ = self.trouver_objet_global(nom_conteneur)
+
+        if  conteneur is None:
+            print("Tu ne vois pas ça ici")
+            return
+        
+        if  not conteneur.props.get("conteneur", False):
+            print("Ce n'est pas un conteneur")
+            return
+        
+        if  conteneur.props.get("ouvrable", False) and not conteneur.etat.get("ouvert", False):
+            print(f"{conteneur.nom} est fermé")
+            return
+        
+        self.joueur.inventaire.remove(objet)
+        conteneur.append(objet)
+        print(f"Tu mets {objet.nom} dans {conteneur}.")
 
     def poser(self, nom_objet):
         if  nom_objet == "":
             print("poser quoi ?")
             return
         
-        objet, origine = self.trouver_objet_global(nom_objet)
+        objet, origine, source = self.trouver_objet_global(nom_objet)
 
         if  objet is None:
             print("Tu n'as pas cet objet")
@@ -203,10 +313,39 @@ class Engine:
             print("Cet objet est déjà ici.")
             return
         
+        if  origine == "conteneur":
+            print("Tu dois d'abord le prendre")
+            return
+        
         self.joueur.inventaire.remove(objet)
         piece = self.joueur.position
         piece.objets.append(objet)
         print(f"Tu poses {objet.nom}")
+
+    def poser_sur(self, nom_objet, nom_support):
+        objet, _, source = self.trouver_objet_global(nom_objet)
+
+        if  objet is None:
+            print("Tu n'as pas cet objet")
+            return
+
+        if  source != self.joueur:
+            print("Tu dois d'abord le prendre")
+            return
+        
+        support, _,_ = self.trouver_objet_global(nom_support)
+
+        if  support is None:
+            print("Tu ne vois pas ça ici")
+            return
+        
+        if  not support.props.get("support", False):
+            print("Tu ne peux rien poser dessus.")
+            return        
+        
+        self.joueur.inventaire.remove(objet)
+        support.objets.append(objet)
+        print(f"Tu poses {objet.nom} sur {support.nom}")
 
 # -------------------------------------------------------
 #               Gestion des actions
@@ -267,18 +406,39 @@ class Engine:
         
         piece.decrire()
 
+    def conteneur_accessible(self, objet):
+        if  not objet.props.get("conteneur", False):
+            return False
+        
+        if  objet.props.get("ouvrable", False) and not objet.etat.get("ouvert", False):
+            return False
+        
+        return True
+
     def trouver_objet_global(self, nom_objet):
         piece = self.joueur.position
 
         objet = piece.trouver_objet(nom_objet)
         if  objet:
-            return objet, "piece"
+            return objet, "piece", piece
         
         objet = self.joueur.trouver_objet(nom_objet)
         if  objet:
-            return objet, "inventaire"
+            return objet, "inventaire", self.joueur
         
-        return None, None
+        for conteneur in piece.objets:
+            if  self.conteneur_accessible(conteneur):
+                objet = conteneur.trouver_objet(nom_objet)
+                if  objet:
+                    return objet, "conteneur", conteneur
+                
+        for conteneur in self.joueur.inventaire:
+            if  self.conteneur_accessible(conteneur):
+                objet = conteneur.trover_objet(nom_objet)
+                if  objet:
+                    return objet, "conteneur", conteneur
+        
+        return None, None, None
 
     def joueur_a_lumiere(self):
         # lumière portée dans l'inventaire
@@ -420,7 +580,7 @@ def creer_monde():
     )
     salon = Piece(
         "Salon",
-        "Tu es dans un vieux salon poussiéreux. Un tapis usé recouvre le sol."
+        "Tu es dans le salon. Il y a une porte à l'est, une porte en bois ornée d'étranges inscriptions gothiques à l'ouest, qui semble avoir été clouée, une vitrine à trophées et un grand tapis oriental au centre de la pièce."
     )
     cave = Piece(
         "Cave",
@@ -529,6 +689,7 @@ def creer_monde():
 
     # Objets
     boite = Objet("boîte aux lettres", "une boîte aux lettres ouverte", portable=False)
+    boite.props["conteneur"] = True
     boite.props["ouvrable"] = True
     boite.props["ouverte"] = False
     boite.actions["ouvrir"] = {
@@ -544,10 +705,31 @@ def creer_monde():
     }
     grille = Objet("grille", "une grille fortement fixée au sol", portable=False)
     grille.props = {"visible": False}
-    lampe = Objet("lampe", "une vieille lampe possiéreuse")
+
+    lampe = Objet("lampe", "Une lanterne en laiton fonctionnant à piles")
     lampe.props = {"lumiere": True, "allumable": True}
     lampe.etat["allumee"] = False
     lampe.etat["duree"] = 20            #nombre de tours
+
+    ail = Objet("ail", "une gousse d'ail")
+    bouteille = Objet("bouteille", "une bouteille en verre")
+    bouteille.props = {"conteneur": True}
+    corde = Objet("corde", "un gros rouleau de corde")              # " est posé dans un coin"
+    couteau = Objet("couteau", "un couteau bien aiguisé")
+    epee = Objet("épée", "une épée elfique très ancienne")
+    repas = Objet("repas", "un repas emballé dans du papier")
+
+    sac = Objet("sac", "un sac brun allongé")
+    sac.props = {"conteneur": True, "ouvrable": True}
+    sac.etat["ouvert"] = False
+
+    table = Objet("table", "une table")
+    table.props = {"support": True}
+
+    vitrine = Objet("vitrine", "une vitrine à trophées")
+    vitrine.props = {"conteneur": True, "ouvrable": True, "support": True}
+    vitrine.etat["ouvert"] = False
+
     tapis = Objet("tapis", "un grand tapis d'orient au centre de la pièce")
     tapis.props = {"deplacable": True}
     tapis.actions["deplacer"] = {
@@ -555,7 +737,6 @@ def creer_monde():
         "set_flags": {"tapis_deplace": True, "trappe_visible": True},
         "set_objet_props": {"trappe": {"visible": True}}
     }
-    corde = Objet("corde", "Une corde usée, mais solide")
 # à gérer plus tard    fenetre = object("fenetre", )
     trappe = Objet("trappe", "Une trappe en bois apparaît sur le sol", portable=False)
     trappe.props = {"visible": False}
@@ -571,11 +752,23 @@ def creer_monde():
     
     clairiere_1.ajouter_objet(feuilles)
     clairiere_1.ajouter_objet(grille)
-    cuisine.ajouter_objet
+
+    cuisine.ajouter_objet(sac)
+    cuisine.ajouter_objet(bouteille)
     salon.ajouter_objet(lampe)
     salon.ajouter_objet(tapis)
     salon.ajouter_objet(trappe)
-    cave.ajouter_objet(corde)
+    salon.ajouter_objet(vitrine)
+    grenier.ajouter_objet(corde)
+    grenier.ajouter_objet(couteau)
+
+    # Initialisation du contenu des objets
+    boite.contenu.append(depliant)
+    sac.contenu.append(ail)
+    sac.contenu.append(repas)
+    table.contenu.append(sac)
+    table.contenu.append(bouteille)
+    vitrine.contenu.append(epee)
 
     # États locaux (pièces)
     cave.flags["sombre"] = True
