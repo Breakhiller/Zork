@@ -33,8 +33,22 @@ class Piece:
                 if  objet.props.get("visible", True):
                         print(f"Il y a {objet.description} ici")
 
-        if self.sorties:
-            print("Sorties :", ", ".join(self.sorties.keys()))
+                        if  objet.props.get("support", False) and objet.objets_sur:
+                            print(f"Sur {objet.nom}, tu vois :")
+                            for obj in objet.objets_sur:
+                                print(f"- {obj.description}")
+
+                        if  objet.props.get("conteneur", False):
+                            if  objet.props.get("ouvrable", False) and not objet.etat.get("ouvert", False):
+                                pass
+                            else:
+                                if  objet.contenu:
+                                    print(f"Dans {objet.nom}, tu vois :")
+                                    for obj in objet.contenu:
+                                        print(f"- {obj.description}")
+
+#        if self.sorties:
+#            print("Sorties :", ", ".join(self.sorties.keys()))
 
 
 class Objet:
@@ -51,23 +65,26 @@ class Objet:
     def __repr__(self):
         return self.nom                 # évite d'avoir un nom eas56e11...
     
-    def trouver_objet(self, nom):
-        for objet in self.contenu:
+    def chercher_dans_liste(self, liste, nom):
+        for objet in liste:
             if  objet.nom == nom and objet.props.get("visible", True):
                 return objet
         return None
+    
+#    def trouver_objet(self, nom):
+#        for objet in self.contenu:
+#            if  objet.nom == nom and objet.props.get("visible", True):
+#                return objet
+#        return None
+
+    def trouver_objet(self, nom):
+        return self.chercher_dans_liste(self.objets, nom)
 
     def trouver_objet_dans(self, nom):
-        for objet in self.contenu:
-            if  objet.nom == nom and objet.props.get("visible", True):
-                return objet
-        return None
+        return self.chercher_dans_liste(self.contenu, nom)
 
     def trouver_objet_sur(self, nom):
-        for objet in self.objets_sur:
-            if  objet.nom == nom and objet.props.get("visible", True):
-                return objet
-        return None
+        return self.chercher_dans_liste(self.objets_sur, nom)
 
 
 class Joueur:
@@ -121,14 +138,14 @@ class Engine:
         # traitement mettre ou poser un objet dans ou sur un conteneur
         if  commande.startswith("mettre ") and " dans " in commande:
             reste = commande.replace("mettre ", "" , 1)
-            nom_objet, nom_cible = reste.split(" dans ", 1)
-            self.mettre_dans(nom_objet, nom_cible)
+            nom_objet, nom_conteneur = reste.split(" dans ", 1)
+            self.mettre_dans(nom_objet, nom_conteneur)
             return
         
         if  commande.startswith("poser ") and " sur " in commande:
             reste = commande.replace("poser ", "" , 1)
-            nom_objet, nom_cible = reste.split(" sur ", 1)
-            self.mettre_dans(nom_objet, nom_cible)
+            nom_objet, nom_support = reste.split(" sur ", 1)
+            self.poser_sur(nom_objet, nom_support)
             return
         
         # cas normaux verbe complément
@@ -198,22 +215,7 @@ class Engine:
             print("Tu regardes dans ton inventaire...")
         
         print(objet.description)
-
-        if  objet.props.get("conteneur", False):
-            if  objet.props.get("ouvrable", False) and not objet.etat.get("ouvert", False):
-                print(f"{nom_objet} est fermé")
-                return
-            
-            if not objet.contenu:
-                print(f"{nom_objet} est vide.")
-                return
-            
-            if  objet.props.get("conteneur"):
-                print(f"Dans {nom_objet}, tu vois :")
-            elif objet.props.get("support"):
-                print(f"Sur {nom_objet}, tu vois")
-            for obj in objet.contenu:
-                print(f"- {obj.description}")
+        self.afficher_contenu_objet(objet)
 
     def ouvrir(self, nom_objet):
         objet, _, _ = self.trouver_objet_global(nom_objet)
@@ -238,6 +240,7 @@ class Engine:
         
         objet.etat["ouvert"] = True
         print(f"Tu ouvres {nom_objet}.")
+        self.afficher_contenu_objet(objet)
 
     def prendre(self, nom_objet):
         if  nom_objet == "":
@@ -261,8 +264,11 @@ class Engine:
         if  origine == "piece":
             source.objets.remove(objet)
 
-        if  origine == "conteneur":
-            source.contenu.remove(objet)    
+        if  origine == "dans":
+            source.contenu.remove(objet)
+
+        if  origine == "sur":
+            source.objets_sur.remove(objet)
         
 #        piece = self.joueur.position
 #        piece.objets.remove(objet)
@@ -270,20 +276,16 @@ class Engine:
         print(f"Tu prends {objet.nom}")
 
     def mettre_dans(self, nom_objet, nom_conteneur):
-        objet, _, source = self.trouver_objet_global(nom_objet)
+        objet, origine, source = self.trouver_objet_global(nom_objet)
 
-        if  objet is None:
-            print("Tu n'as pas cet objet")
+        if  objet is None or origine != "inventaire":
+            print("Tu dois d'abord avoir cet objet")
             return
 
-        if  source != self.joueur:
-            print("Tu dois d'abord le prendre")
-            return
-        
         conteneur, _, _ = self.trouver_objet_global(nom_conteneur)
 
         if  conteneur is None:
-            print("Tu ne vois pas ça ici")
+            print("Tu ne vois pas çe conteneur ici")
             return
         
         if  not conteneur.props.get("conteneur", False):
@@ -295,8 +297,8 @@ class Engine:
             return
         
         self.joueur.inventaire.remove(objet)
-        conteneur.append(objet)
-        print(f"Tu mets {objet.nom} dans {conteneur}.")
+        conteneur.contenu.append(objet)
+        print(f"Tu mets {objet.nom} dans {conteneur.nom}.")
 
     def poser(self, nom_objet):
         if  nom_objet == "":
@@ -323,20 +325,16 @@ class Engine:
         print(f"Tu poses {objet.nom}")
 
     def poser_sur(self, nom_objet, nom_support):
-        objet, _, source = self.trouver_objet_global(nom_objet)
+        objet, origine, source = self.trouver_objet_global(nom_objet)
 
-        if  objet is None:
-            print("Tu n'as pas cet objet")
+        if  objet is None or origine != "inventaire":
+            print("Tu dois d'abord avoir cet objet")
             return
 
-        if  source != self.joueur:
-            print("Tu dois d'abord le prendre")
-            return
-        
         support, _,_ = self.trouver_objet_global(nom_support)
 
         if  support is None:
-            print("Tu ne vois pas ça ici")
+            print("Tu ne vois pas ce support ici")
             return
         
         if  not support.props.get("support", False):
@@ -344,7 +342,7 @@ class Engine:
             return        
         
         self.joueur.inventaire.remove(objet)
-        support.objets.append(objet)
+        support.objets_sur.append(objet)
         print(f"Tu poses {objet.nom} sur {support.nom}")
 
 # -------------------------------------------------------
@@ -397,6 +395,39 @@ class Engine:
 #               Fonctions utilitaires
 # -------------------------------------------------------
 
+    def afficher_contenu_objet(self, objet):
+#        print("on est dans afficher_contenu_objet")
+        if  objet.props.get("support", False):
+            if  objet.objets_sur:
+                print(f"Sur {objet.nom} tu vois :")
+                for obj in objet.objets_sur:
+                    print(f"- {obj.description}")
+#                    print("normalement il devrait trouver la bouteille ici")
+
+                    # si l'objet est lui-même un conteneur
+                    if  obj.props.get("conteneur", False):
+                        if  obj.props.get("ouvrable", False) and not obj.etat.get("ouvert", False):
+                            continue
+
+                        if  obj.contenu:
+                            print(f"   {obj.nom} contient :")
+                            for contenu in obj.contenu:
+                                print(f"   - {contenu.description}")
+                        else:
+                            print(f"    {obj.nom} est vide")
+
+        if  objet.props.get("conteneur", False):
+            if  objet.props.get("ouvrable", False) and not objet.etat.get("ouvert", False):
+                print(f"{objet.nom} est fermé.")
+                return
+            
+            if  objet.contenu:
+                print(f"Dans {objet.nom} tu vois :")
+                for obj in objet.contenu:
+                    print(f"- {obj.description}")
+            else:
+                print(f"{objet.nom} est vide")
+
     def decrire_position(self):
         piece:Piece = self.joueur.position
 
@@ -426,17 +457,29 @@ class Engine:
         if  objet:
             return objet, "inventaire", self.joueur
         
+        # objets dans ou sur  des objets de la piece
         for conteneur in piece.objets:
             if  self.conteneur_accessible(conteneur):
-                objet = conteneur.trouver_objet(nom_objet)
+                objet = conteneur.trouver_objet_dans(nom_objet)
                 if  objet:
-                    return objet, "conteneur", conteneur
+                    return objet, "dans", conteneur
                 
+            if  conteneur.props.get("support", False):
+                objet = conteneur.trouver_objet_sur(nom_objet)    
+                if  objet:
+                    return objet, "sur", conteneur
+                
+        # objets dans et sur des objets de l'inventaire        
         for conteneur in self.joueur.inventaire:
             if  self.conteneur_accessible(conteneur):
-                objet = conteneur.trover_objet(nom_objet)
+                objet = conteneur.trover_objet_dans(nom_objet)
                 if  objet:
-                    return objet, "conteneur", conteneur
+                    return objet, "dans", conteneur
+                
+            if  conteneur.props.get("support", False):
+                objet = conteneur.trouver_objet_sur(nom_objet)
+                if  objet:
+                    return objet, "sur", conteneur
         
         return None, None, None
 
@@ -713,7 +756,9 @@ def creer_monde():
 
     ail = Objet("ail", "une gousse d'ail")
     bouteille = Objet("bouteille", "une bouteille en verre")
-    bouteille.props = {"conteneur": True}
+    bouteille.props = {"conteneur": True, "ouvrable": True}
+    bouteille.etat["ouvert"] = True
+    eau = Objet("eau", "une certaine quantité d'eau")
     corde = Objet("corde", "un gros rouleau de corde")              # " est posé dans un coin"
     couteau = Objet("couteau", "un couteau bien aiguisé")
     epee = Objet("épée", "une épée elfique très ancienne")
@@ -723,7 +768,7 @@ def creer_monde():
     sac.props = {"conteneur": True, "ouvrable": True}
     sac.etat["ouvert"] = False
 
-    table = Objet("table", "une table")
+    table = Objet("table", "une vieille table en bois")
     table.props = {"support": True}
 
     vitrine = Objet("vitrine", "une vitrine à trophées")
@@ -753,9 +798,9 @@ def creer_monde():
     clairiere_1.ajouter_objet(feuilles)
     clairiere_1.ajouter_objet(grille)
 
-    cuisine.ajouter_objet(sac)
-    cuisine.ajouter_objet(bouteille)
-    salon.ajouter_objet(lampe)
+#    cuisine.ajouter_objet(sac)
+    cuisine.ajouter_objet(table)
+#    salon.ajouter_objet(lampe)
     salon.ajouter_objet(tapis)
     salon.ajouter_objet(trappe)
     salon.ajouter_objet(vitrine)
@@ -766,9 +811,11 @@ def creer_monde():
     boite.contenu.append(depliant)
     sac.contenu.append(ail)
     sac.contenu.append(repas)
-    table.contenu.append(sac)
-    table.contenu.append(bouteille)
-    vitrine.contenu.append(epee)
+    table.objets_sur.append(sac)
+    table.objets_sur.append(bouteille)
+    bouteille.contenu.append(eau)
+    vitrine.objets_sur.append(epee)
+    vitrine.objets_sur.append(lampe)
 
     # États locaux (pièces)
     cave.flags["sombre"] = True
