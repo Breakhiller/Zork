@@ -29,7 +29,7 @@ class Piece:
 
     def trouver_objet(self, nom):
         for objet in self.objets:
-            if  objet.nom == nom:
+            if  objet.nom == nom and objet.props.get("visible", True):
                 return objet
         return None
 
@@ -42,31 +42,47 @@ class Piece:
 #        if self.sorties:
 #            print("Sorties :", ", ".join(self.sorties.keys()))
 
-    def decrire_objets(self):
+    def decrire_objets(self, long = False):
         if  self.objets:
             for objet in self.objets:
                 if  objet.props.get("visible", True):
-                        print(f"Il y a {objet.description} ici")
 
-                        if  objet.props.get("support", False) and objet.objets_sur:
-                            print(f"Sur {objet.nom}, tu vois :")
-                            for obj in objet.objets_sur:
-                                print(f"- {obj.description}")
+                    if long:                    
+                        print(f"Il y a {objet.decrire()} ici")
+                    else:
+                        print(f"Il y a {objet.description_courte} ici")
 
-                        if  objet.props.get("conteneur", False):
-                            if  objet.props.get("ouvrable", False) and not objet.etat.get("ouvert", False):
-                                pass
-                            else:
-                                if  objet.contenu:
-                                    print(f"Dans {objet.nom}, tu vois :")
-                                    for obj in objet.contenu:
-                                        print(f"- {obj.description}")
+                    if  objet.props.get("support", False) and objet.objets_sur:
+                        print(f"Sur {objet.nom}, tu vois :")
+                        for obj in objet.objets_sur:
+                            print(f"- {obj.description_courte}")
+
+                            if  obj.props.get("conteneur", False):
+                                if  obj.props.get("ouvrable", False) and not obj.etat.get("ouvert", False):
+                                    continue
+                                if  obj.contenu:
+                                    print(f"   {obj.nom} contient :")
+                                    for contenu in obj.contenu:
+                                        print(f"   - {contenu.description_courte}")
+                                else:
+                                    print(f"   {obj.nom()} est vide")
+                               
+
+                    if  objet.props.get("conteneur", False):
+                        if  objet.props.get("ouvrable", False) and not objet.etat.get("ouvert", False):
+                            continue
+                        if  objet.contenu:
+                            print(f"Dans {objet.nom}, tu vois :")
+                            for obj in objet.contenu:
+                                print(f"- {obj.description_courte}")
 
 
 class Objet:
-    def __init__(self, nom, description, portable = True):
+    def __init__(self, nom, description, portable = True, description_courte = None):
         self.nom = nom
         self.description = description
+        self.description_courte = description_courte or description
+        self.deja_vu = False
         self.portable = portable
         self.props = {}                 # ce que l'objet peut faire
         self.etat = {}                  # allumé ou éteint
@@ -83,14 +99,41 @@ class Objet:
                 return objet
         return None
     
+    def decrire(self):
+        if not self.deja_vu:
+            self.deja_vu = True
+            texte = self.description
+        else:
+            texte = self.description_courte
+
+        if  self.props.get("ouvrable", False):
+            if  self.etat.get("ouvert", False):
+                texte += " ouverte"
+            else:
+                texte += " fermée"
+
+        return texte
+    
+    def decrire_court(self):
+        texte = self.description_courte
+
+        if  self.props.get("ouvrable", False):
+            if  self.etat.get("ouvert", False):
+                texte += " ouverte"
+            else:
+                texte += " fermée"
+
+        return texte
+    
 #    def trouver_objet(self, nom):
 #        for objet in self.contenu:
 #            if  objet.nom == nom and objet.props.get("visible", True):
 #                return objet
 #        return None
 
-    def trouver_objet(self, nom):
-        return self.chercher_dans_liste(self.objets, nom)
+#   ä supprimer vraiment ? faudra voir    
+#    def trouver_objet(self, nom):
+#        return self.chercher_dans_liste(self.objets, nom)
 
     def trouver_objet_dans(self, nom):
         return self.chercher_dans_liste(self.contenu, nom)
@@ -205,7 +248,7 @@ class Engine:
         if  self.joueur.inventaire:
             print("Tu portes :")
             for obj in self.joueur.inventaire:
-                print(f"- {obj.description}")
+                print(f"- {obj.decrire_court()}")
         else:
             print("Tu ne portes rien.")
 
@@ -214,8 +257,23 @@ class Engine:
         piece = self.joueur.position
 
         if  direction in piece.sorties:
+            ancienne_piece = self.joueur.position               # ajouté pour cas spécial trappe qui se referme
             self.joueur.position = piece.sorties[direction]
-#            self.joueur.position.decrire()
+
+            # ajout cas spécial trappe qui se referme, a rendre générique plus tard
+            
+            if  ancienne_piece.nom == "Salon" and self.joueur.position.nom == "Cave":
+                ancienne_piece.flags["trappe ouverte"] = False
+
+                if  "descendre" in ancienne_piece.sorties:
+                    del ancienne_piece.sorties["descendre"]
+
+                if  "monter" in self.joueur.position.sorties:
+                    del self.joueur.position.sorties["monter"]
+
+                print("La trappe se referme dans un grand fracas, et tu entends quelqu'un la verrouiller.")
+            # fin de l'ajout
+
             self.decrire_position()
         else:
             print("Tu ne peux pas aller par là.")
@@ -275,7 +333,17 @@ class Engine:
             return
         
         objet.etat["ouvert"] = True
-        print(f"Tu ouvres {nom_objet}.")
+
+        if  not objet.etat.get("deja_ouvert", False):
+            message = objet.props.get("message_premiere_ouverture")
+            if  message:
+                print(message)
+            else:
+                print(f"Tu ouvres {objet.nom}.")
+            objet.etat["deja_ouvert"] = True
+        else:
+            print(f"Tu ouvres {objet.nom}.")
+
         self.afficher_contenu_objet(objet)
 
     def prendre(self, nom_objet):
@@ -351,7 +419,8 @@ class Engine:
             print("Cet objet est déjà ici.")
             return
         
-        if  origine == "conteneur":
+#        if  origine == "conteneur":
+        if origine in ("dans", "sur"):
             print("Tu dois d'abord le prendre")
             return
         
@@ -474,14 +543,15 @@ class Engine:
             print("Il fait trop sombre pour voir quoi que ce soit")
             return
         
-        print
+        print()
         print(piece.nom)
         
         if  complet or not piece.visitee:
             print(piece.description)
             piece.visitee = True
-
-        piece.decrire_objets()
+            piece.decrire_objets(long = True)
+        else:
+            piece.decrire_objets(long = False)
 
     def conteneur_accessible(self, objet):
         if  not objet.props.get("conteneur", False):
@@ -518,7 +588,7 @@ class Engine:
         # objets dans et sur des objets de l'inventaire        
         for conteneur in self.joueur.inventaire:
             if  self.conteneur_accessible(conteneur):
-                objet = conteneur.trover_objet_dans(nom_objet)
+                objet = conteneur.trouver_objet_dans(nom_objet)
                 if  objet:
                     return objet, "dans", conteneur
                 
@@ -582,9 +652,11 @@ class Engine:
 
         if  self.tours_dans_le_noir >= 2:
             if  random.randint(1, 100) <= 50:
-                print("Tu entends un bruit dans l'obscurité...")
                 print()
-                print("Une Grue t'a dévoré")
+                print("Oh, non !")
+                print("Tu es tombé entre les crocs baveux d'un grue qui t'attendait en embuscade !")
+                print()
+                print("   ****  Tu es mort  ****")
                 self.en_cours = False
             else:
                 print("Tu tâtonnes dans le noir. Ce n'est pas prudent.")
@@ -673,7 +745,23 @@ def creer_monde():
     )
     cave = Piece(
         "Cave",
-        "Tu es dans une cave sombre et humide. L'air sent la pierre froide."
+        "Tu es dans une cave sombre et humide, avec un passage étroit menant vers le nord et un passage à quatre pattes vers le sud. À l'ouest se trouve le pied d'une rampe métallique escarpée qu'il est impossible d'escalader."
+    )
+    gouffre_est = Piece(
+        "À l'est du gouffre",
+        "Tu te trouves au bord est d'un gouffre dont le fond est invisible. Un passage étroit mène vers le nord, tandis que le chemin sur lequel tu te trouves continue vers l'est."
+    )
+    galerie = Piece(
+        "Galerie d'art",
+        "Voici une galerie d'art. La plupart des tableaux ont été volés par des vandales au goût exceptionnel. Ces derniers se sont enfuis par la sortie nord ou par la sortie ouest."
+    )
+    studio = Piece(
+        "Studio",
+        "Il semble que ce lieu ait été l'atelier d'un artiste. Les murs et le sol sont éclaboussés de peinture de 69 couleurs différentes. Curieusement, aucun objet de valeur n'est accroché ici. À l'extrémité sud de la pièce se trouve une porte ouverte (elle aussi recouverte de peinture). Une cheminée sombre et étroite part de la cheminée ; même si tu pouvais y monter, il semble peu probable que tu puisses en redescendre."
+    )
+    salle_troll = Piece(
+        "Salle du troll",
+        "C'est une petite pièce avec des passages menant à l'est et au sud, ainsi qu'un trou sinistre s'ouvrant vers l'ouest. Des taches de sang et de profondes éraflures (probablement causées par une hache) marquent les murs.\nUn troll à l'air repoussant, brandissant une hache ensanglantée, bloque tous les passages menant hors de la pièce.\nLe coup puissant du troll te fait tomber à genoux.\nSauve-toi par le sud !"
     )
 
     # Sorties
@@ -750,7 +838,20 @@ def creer_monde():
     salon.ajouter_sortie("est", cuisine)
 #   caché : salon.ajouter_sortie("descendre", cave)
 
+    cave.ajouter_sortie("nord", salle_troll)
     cave.ajouter_sortie("monter", salon)
+    cave.ajouter_sortie("sud", gouffre_est)
+
+    gouffre_est.ajouter_sortie("nord", cave)
+    gouffre_est.ajouter_sortie("est", galerie)
+
+    galerie.ajouter_sortie("nord", studio)
+    galerie.ajouter_sortie("ouest", gouffre_est)
+
+    studio.ajouter_sortie("sud", galerie)
+    studio.ajouter_sortie("monter", cuisine)
+
+    salle_troll.ajouter_sortie("sud", cave)
 
     # Monde
     monde = {
@@ -773,7 +874,11 @@ def creer_monde():
         "cuisine": cuisine,
         "grenier": grenier,
         "salon": salon,
-        "cave": cave
+        "cave": cave,
+        "gouffre_est": gouffre_est,
+        "galerie": galerie,
+        "studio": studio,
+        "salle_troll": salle_troll
     }
 
     # Objets
@@ -793,9 +898,14 @@ def creer_monde():
         "set_flags": {"feuilles_deplacees": True},
         "set_objet_props": {"grille": {"visible": True}}      
     }
-    oeuf = Objet("oeuf doré", "Un gros œuf incrusté de pierres précieuses, apparemment ramassé par un oiseau chanteur sans progéniture. L'œuf est recouvert d'une fine incrustation d'or et orné de lapis-lazuli et de nacre. Contrairement à la plupart des œufs, celui-ci est articulé et se ferme à l'aide d'un fermoir d'apparence délicate. L'œuf semble extrêmement fragile.")
+    oeuf = Objet("oeuf doré", "Un gros œuf incrusté de pierres précieuses, apparemment ramassé par un oiseau chanteur sans progéniture. L'œuf est recouvert d'une fine incrustation d'or et orné de lapis-lazuli et de nacre. Contrairement à la plupart des œufs, celui-ci est articulé et se ferme à l'aide d'un fermoir d'apparence délicate. L'œuf semble extrêmement fragile.",
+                 description_courte = "un oeuf doré incrusté de pierres précieuses")
     grille = Objet("grille", "une grille fortement fixée au sol", portable=False)
     grille.props = {"visible": False}
+
+    fenetre = Objet("fenêtre", "une petite fenêtre")
+    fenetre.props = {"ouvrable": True, "message_premiere_ouverture": "Avec un grand effort, tu parviens à ouvrir la fenêtre"}
+    fenetre.etat = {"ouvert": False, "deja_ouvert": False}
 
     lampe = Objet("lampe", "Une lanterne en laiton fonctionnant à piles")
     lampe.props = {"lumiere": True, "allumable": True}
@@ -807,7 +917,7 @@ def creer_monde():
     bouteille.props = {"conteneur": True, "ouvrable": True}
     bouteille.etat["ouvert"] = True
     eau = Objet("eau", "une certaine quantité d'eau")
-    corde = Objet("corde", "un gros rouleau de corde")              # " est posé dans un coin"
+    corde = Objet("corde", "Un gros rouleau de corde  est posé dans un coin du grenier", description_courte = "un gros rouleau de corde")
     couteau = Objet("couteau", "un couteau bien aiguisé")
     epee = Objet("épée", "une épée elfique très ancienne")
     repas = Objet("repas", "un repas emballé dans du papier")
@@ -830,7 +940,7 @@ def creer_monde():
         "set_flags": {"tapis_deplace": True, "trappe_visible": True},
         "set_objet_props": {"trappe": {"visible": True}}
     }
-# à gérer plus tard    fenetre = object("fenetre", )
+
     trappe = Objet("trappe", "Une trappe en bois apparaît sur le sol", portable=False)
     trappe.props = {"visible": False}
     trappe.actions["ouvrir"] = {
@@ -840,19 +950,26 @@ def creer_monde():
         "revele_sorties": {"descendre": "cave"}
     }
 
+    tableau = Objet("tableau", "Heureusement, il te reste une chance de jouer les vandales, car sur le mur du fond se trouve un tableau d'une beauté sans pareille.",
+                     description_courte = "un tableau d'une beauté sans pareille")
+
     # Localisation objets
     maison_ouest.ajouter_objet(boite)
+    maison_derriere.ajouter_objet(fenetre)
     
     clairiere_1.ajouter_objet(feuilles)
     clairiere_1.ajouter_objet(grille)
     arbre.ajouter_objet(oeuf)
 
+    cuisine.ajouter_objet(fenetre)
     cuisine.ajouter_objet(table)
     salon.ajouter_objet(tapis)
     salon.ajouter_objet(trappe)
     salon.ajouter_objet(vitrine)
     grenier.ajouter_objet(corde)
     grenier.ajouter_objet(couteau)
+
+    galerie.ajouter_objet(tableau)
 
     # Initialisation du contenu des objets
     boite.contenu.append(depliant)
@@ -867,7 +984,11 @@ def creer_monde():
     # États locaux (pièces)
     cave.flags["sombre"] = True
     clairiere_1.flags["feuilles_deplacees"] = False
-    salon.flags["tapis_déplacé"] = False
+    gouffre_est.flags["sombre"] = True
+    galerie.flags["sombre"] = True
+    studio.flags["sombre"] = True
+    salle_troll.flags["sombre"] = True
+    salon.flags["tapis_deplace"] = False
     salon.flags["trappe_visible"] = False
     salon.flags["trappe_ouverte"] = False
 
