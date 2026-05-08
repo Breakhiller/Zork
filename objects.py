@@ -992,13 +992,13 @@ def creer_monde():
     # États locaux (pièces)
     cave.flags["sombre"] = True
     clairiere_1.flags["feuilles_deplacees"] = False
-    clairiere_1.flags["foret"]
-    clairiere_2.flags["foret"]
-    foret_1.flags["foret"]
-    foret_2.flags["foret"]
-    foret_3.flags["foret"]
-    foret_sentier.flags["foret"]
-    foret_1.flags["foret"]
+    clairiere_1.flags["foret"] = True
+    clairiere_2.flags["foret"] = True
+    foret_1.flags["foret"] = True
+    foret_2.flags["foret"] = True
+    foret_3.flags["foret"] = True
+    foret_4.flags["foret"] = True
+    foret_sentier.flags["foret"] = True
     gouffre_est.flags["sombre"] = True
     galerie.flags["sombre"] = True
     studio.flags["sombre"] = True
