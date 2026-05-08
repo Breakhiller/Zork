@@ -177,6 +177,7 @@ class Engine:
             if  self.en_cours:
                 self.decrementer_lampe()
                 self.gerer_obscurite()
+                self.gerer_ambiance()
 
     def traiter_commande(self, commande):
         if  commande == "":
@@ -661,6 +662,13 @@ class Engine:
             else:
                 print("Tu tâtonnes dans le noir. Ce n'est pas prudent.")
 
+    def gerer_ambiance(self):
+        piece = self.joueur.position
+
+        if  piece.flags.get("foret", True):
+            if  random.randint(1, 100) <= 10:
+                print("On entend au loin le gazouillis d'un oiseau chanteur.")
+
 
 
 def creer_monde():
@@ -984,6 +992,13 @@ def creer_monde():
     # États locaux (pièces)
     cave.flags["sombre"] = True
     clairiere_1.flags["feuilles_deplacees"] = False
+    clairiere_1.flags["foret"]
+    clairiere_2.flags["foret"]
+    foret_1.flags["foret"]
+    foret_2.flags["foret"]
+    foret_3.flags["foret"]
+    foret_sentier.flags["foret"]
+    foret_1.flags["foret"]
     gouffre_est.flags["sombre"] = True
     galerie.flags["sombre"] = True
     studio.flags["sombre"] = True
