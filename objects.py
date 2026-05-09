@@ -11,6 +11,11 @@ ALIASES = {
     "grimper": "monter",
     "d": "descendre"
 }
+DIRECTIONS = {
+    "nord", "est", "sud", "ouest",
+    "nord-est", "sud-est", "sud-ouest", "nord-ouest",
+    "monter", "descendre", "entrer", "sortir"
+}
 
 class Piece:
     def __init__(self, nom, description):
@@ -53,7 +58,7 @@ class Piece:
                         print(f"Il y a {objet.description_courte} ici")
 
                     if  objet.props.get("support", False) and objet.objets_sur:
-                        print(f"Sur {objet.nom}, tu vois :")
+                        print(f"\nSur {objet.nom}, tu vois :")
                         for obj in objet.objets_sur:
                             print(f"- {obj.description_courte}")
 
@@ -160,6 +165,7 @@ class Engine:
         self.joueur = Joueur(monde["depart"])
         self.en_cours = True
         self.tours_dans_le_noir = 0
+        self.erreur_verbe = 0
 
 # -------------------------------------------------------
 #               Coeur du moteur
@@ -182,6 +188,8 @@ class Engine:
     def traiter_commande(self, commande):
         if  commande == "":
             return
+        
+        commande_valide = False
         
         if  commande in ("quit", "exit"):
             self.en_cours = False
@@ -216,6 +224,7 @@ class Engine:
         # cas normaux verbe complément
         mots = commande.split()
         verbe = mots[0]
+        verbe = self.normaliser_direction(verbe)
         complement = " ".join(mots[1:])
 
         if  verbe in ("prendre", "take"):
@@ -230,9 +239,22 @@ class Engine:
             self.ouvrir(complement)
         elif verbe == "poser":
             self.poser(complement)
+        elif verbe in DIRECTIONS:
+            commande_valide = True
+            self.aller(verbe)
         else:
-            # pour nord, sud, est, ouest, entrer, sortir, monter, descendre ...        
-            self.aller(commande)
+            print("je ne connais pas cette commande")
+
+        # gestion erreurs
+        if  commande_valide:
+            self.erreur_verbe = 0
+        else:
+            self.erreur_verbe += 1
+        
+            if  self.erreur_verbe > 3:
+                print("\n Tu sembles un peu perdu...\n")
+                self.afficher_aide()
+                self.erreur_verbe = 0
 
 # -------------------------------------------------------
 #               Verbes du joueur
@@ -240,10 +262,15 @@ class Engine:
 
     def afficher_aide(self):
         print("Commandes disponibles :")
-        print("nord, sud, est, ouest, entrer, sortir, monter, descendre")
-        print("regarder, examiner")
-        print("prendre, poser, poser objet sur support, mettre objet dans conteneur")
-        print("aide, inventaire, quitter")
+        print("Directions :")
+        print("nord, sud, est, ouest, nord-est, nord-ouest, sud-ouest, nord-ouest")
+        print("entrer, sortir, monter, descendre\n")
+        print("Verbes courants :")
+        print("prendre, poser, poser objet sur support, mettre objet dans conteneur\n   ")
+        print("Commandes de jeu :")
+        print("regarder : décrit la pièce actuelle")
+        print("examiner : donne une description détaillée d'un objet")
+        print("aide, inventaire, quit")
 
     def afficher_inventaire(self):
         if  self.joueur.inventaire:
@@ -254,7 +281,7 @@ class Engine:
             print("Tu ne portes rien.")
 
     def aller(self, direction):
-        direction = self.normaliser_direction(direction)
+#        direction = self.normaliser_direction(direction)
         piece = self.joueur.position
 
         if  direction in piece.sorties:
@@ -508,7 +535,7 @@ class Engine:
 #        print("on est dans afficher_contenu_objet")
         if  objet.props.get("support", False):
             if  objet.objets_sur:
-                print(f"Sur {objet.nom} tu vois :")
+                print(f"\nSur {objet.nom} tu vois :")
                 for obj in objet.objets_sur:
                     print(f"- {obj.description}")
 #                    print("normalement il devrait trouver la bouteille ici")
@@ -665,7 +692,7 @@ class Engine:
     def gerer_ambiance(self):
         piece = self.joueur.position
 
-        if  piece.flags.get("foret", True):
+        if  piece.flags.get("foret", False):
             if  random.randint(1, 100) <= 10:
                 print("On entend au loin le gazouillis d'un oiseau chanteur.")
 
@@ -783,7 +810,7 @@ def creer_monde():
     canyon_bas.ajouter_sortie("nord", bout_arc_en_ciel)
     canyon_bas.ajouter_sortie("monter", corniche)
 
-    bout_arc_en_ciel.ajouter_sortie("nord-ouest", canyon_bas)
+    bout_arc_en_ciel.ajouter_sortie("sud-ouest", canyon_bas)
 # manque caché    bout_arc_en_ciel.ajouter_sortie("monter",arc_en_ciel)
 
     clairiere_1.ajouter_sortie("est", foret_2)
@@ -838,6 +865,7 @@ def creer_monde():
     maison_sud.ajouter_sortie("ouest", maison_ouest)
 
     cuisine.ajouter_sortie("est", maison_derriere)
+    cuisine.ajouter_sortie("sortir", maison_derriere)
     cuisine.ajouter_sortie("ouest", salon)
     cuisine.ajouter_sortie("monter", grenier)
 
@@ -915,7 +943,7 @@ def creer_monde():
     fenetre.props = {"ouvrable": True, "message_premiere_ouverture": "Avec un grand effort, tu parviens à ouvrir la fenêtre"}
     fenetre.etat = {"ouvert": False, "deja_ouvert": False}
 
-    lampe = Objet("lampe", "Une lanterne en laiton fonctionnant à piles")
+    lampe = Objet("lampe", "Une lampe en laiton fonctionnant à piles")
     lampe.props = {"lumiere": True, "allumable": True}
     lampe.etat["allumee"] = False
     lampe.etat["duree"] = 20            #nombre de tours
