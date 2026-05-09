@@ -32,7 +32,9 @@ python objects.py
 ## Commandes
 
 ### Déplacements
-nord, est, sut, ouest, monter, descendre, entrer, sortir
+nord, est, sud, ouest,  
+nord-est, sud-est, sud-ouest, nord-ouest  
+monter, descendre, entrer, sortir
 
 ### Actions
 prendre, poser, mettre _objet_ dans, poser _objet_ sur,  
@@ -40,15 +42,10 @@ ouvrir, déplacer, allumer
 
 ### Infos
 regarder : infos sur l'endroit où l'on se trouve  
-
 examiner : un objet  
-
-aide : les commandes possibles   
-
+aide : les commandes possibles  
 inventaire : ce que vous portez sur vous   
 
 ### Quitter Dungeon
 quit, ou exit
-
-
 
