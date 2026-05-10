@@ -166,6 +166,9 @@ class Engine:
         self.en_cours = True
         self.tours_dans_le_noir = 0
         self.erreur_verbe = 0
+        self.nb_morts = 0
+        self.score = 0
+        self.points_obtenus = set()
 
 # -------------------------------------------------------
 #               Coeur du moteur
@@ -212,6 +215,7 @@ class Engine:
         if  commande.startswith("mettre ") and " dans " in commande:
             reste = commande.replace("mettre ", "" , 1)
             nom_objet, nom_conteneur = reste.split(" dans ", 1)
+            commande_valide = True
             self.mettre_dans(nom_objet, nom_conteneur)
             return
         
@@ -228,16 +232,19 @@ class Engine:
         complement = " ".join(mots[1:])
 
         if  verbe in ("prendre", "take"):
+            commande_valide = True
             self.prendre(complement)
         elif verbe in ("déplacer", "soulever"):
             self.executer_action_objet("deplacer", complement)
         elif verbe == "allumer":
             self.allumer(complement)
         elif verbe == "examiner":
+            commande_valide = True
             self.examiner(complement)
         elif verbe == "ouvrir":
             self.ouvrir(complement)
         elif verbe == "poser":
+            commande_valide = True
             self.poser(complement)
         elif verbe in DIRECTIONS:
             commande_valide = True
@@ -287,6 +294,7 @@ class Engine:
         if  direction in piece.sorties:
             ancienne_piece = self.joueur.position               # ajouté pour cas spécial trappe qui se referme
             self.joueur.position = piece.sorties[direction]
+            nouvelle_piece = self.joueur.position
 
             # ajout cas spécial trappe qui se referme, a rendre générique plus tard
             
@@ -301,6 +309,10 @@ class Engine:
 
                 print("La trappe se referme dans un grand fracas, et tu entends quelqu'un la verrouiller.")
             # fin de l'ajout
+
+            score = nouvelle_piece.flags.get("score_entree")
+            if  score:
+                self.ajouter_score(score["cle"], score["points"])
 
             self.decrire_position()
         else:
@@ -393,6 +405,10 @@ class Engine:
             print("Tu ne peux pas prendre cet objet")
             return
         
+        score = objet.props.get("score_prise")
+        if  score:
+            self.ajouter_score(score["cle"], score["points"])
+        
         if  origine == "piece":
             source.objets.remove(objet)
 
@@ -401,6 +417,12 @@ class Engine:
 
         if  origine == "sur":
             source.objets_sur.remove(objet)
+
+        if  origine == "dans" and source.nom == "vitrine":
+            score = objet.props.get("score_vitrine")
+            if  score and objet.etat.get("dans_vitrine", False):
+                self.modifier_score(-score["points"])
+                objet.etat["dans_vitrine"] = False
         
 #        piece = self.joueur.position
 #        piece.objets.remove(objet)
@@ -431,6 +453,12 @@ class Engine:
         self.joueur.inventaire.remove(objet)
         conteneur.contenu.append(objet)
         print(f"Tu mets {objet.nom} dans {conteneur.nom}.")
+
+        if  conteneur.nom == "vitrine":
+            score = objet.props.get("score_vitrine")
+            if  score:
+                self.modifier_score(score["points"])
+                objet.etat["dans_vitrine"] = True
 
     def poser(self, nom_objet):
         if  nom_objet == "":
@@ -564,6 +592,18 @@ class Engine:
             else:
                 print(f"{objet.nom} est vide")
 
+    def ajouter_score(self, cle, points):
+        if  cle in self.points_obtenus:
+            return
+        
+        self.points_obtenus.add(cle)
+        self.score += points
+        print(f"Score : +{points} points. Total : {self.score}")
+
+    def modifier_score(self, points):
+        self.score += points
+        print(f"Score : {self.score}")
+
     def decrire_position(self, complet = False):
         piece:Piece = self.joueur.position
 
@@ -685,9 +725,48 @@ class Engine:
                 print("Tu es tombé entre les crocs baveux d'un grue qui t'attendait en embuscade !")
                 print()
                 print("   ****  Tu es mort  ****")
-                self.en_cours = False
+                self.mourir()
             else:
                 print("Tu tâtonnes dans le noir. Ce n'est pas prudent.")
+
+    def mourir(self):
+        self.nb_morts += 1
+
+        if  self.nb_morts == 1:
+            print("\nBon, voyons voir… Eh bien, tu mérites sans doute une autre chance. Je ne peux pas te remettre complètement d'aplomb, mais on ne peut pas tout avoir.\n")
+            self.perdre_inventaire()
+
+            lieux = [self.monde["foret_1"], self.monde["foret_2"], self.monde["foret_3"], self.monde["foret_4"],]
+            self.joueur.position = random.choice(lieux)
+            self.tours_dans_le_noir = 0
+
+            self.decrire_position()
+            return
+        
+        print("\nDommage, je t'avais pourtant donné une seconde chance !")
+        self.en_cours = False
+
+    def perdre_inventaire(self):
+        lieux_foret = [self.monde["foret_1"], self.monde["foret_2"], self.monde["foret_3"], self.monde["foret_4"], self.monde["clairiere_1"], self.monde["clairiere_2"]]
+
+        inventaire = self.joueur.inventaire[:]              # attention : [:] parcourt une copie de la liste : indispensable dans une boucle
+
+        # gérer la lampe
+        reste = []
+        for objet in inventaire:
+            if  objet.nom == "lampe":
+                self.joueur.inventaire.remove(objet)
+                self.monde["maison_derriere"].objets.append(objet)
+                inventaire.remove(objet)
+            else:
+                reste.append(objet)      # crée une liste reste pour éviter que la lampe soit enlevée deux fois
+
+        # dispatcher environ la moitié des autres objets
+        for objet in reste:            
+            if  random.randint(1, 100) <= 50:
+                self.joueur.inventaire.remove(objet)
+                lieu = random.choice(lieux_foret)
+                lieu.objets.append(objet)
 
     def gerer_ambiance(self):
         piece = self.joueur.position
@@ -934,7 +1013,7 @@ def creer_monde():
         "set_flags": {"feuilles_deplacees": True},
         "set_objet_props": {"grille": {"visible": True}}      
     }
-    oeuf = Objet("oeuf doré", "Un gros œuf incrusté de pierres précieuses, apparemment ramassé par un oiseau chanteur sans progéniture. L'œuf est recouvert d'une fine incrustation d'or et orné de lapis-lazuli et de nacre. Contrairement à la plupart des œufs, celui-ci est articulé et se ferme à l'aide d'un fermoir d'apparence délicate. L'œuf semble extrêmement fragile.",
+    oeuf = Objet("oeuf", "Un gros œuf incrusté de pierres précieuses, apparemment ramassé par un oiseau chanteur sans progéniture. L'œuf est recouvert d'une fine incrustation d'or et orné de lapis-lazuli et de nacre. Contrairement à la plupart des œufs, celui-ci est articulé et se ferme à l'aide d'un fermoir d'apparence délicate. L'œuf semble extrêmement fragile.",
                  description_courte = "un oeuf doré incrusté de pierres précieuses")
     grille = Objet("grille", "une grille fortement fixée au sol", portable=False)
     grille.props = {"visible": False}
@@ -1034,6 +1113,17 @@ def creer_monde():
     salon.flags["tapis_deplace"] = False
     salon.flags["trappe_visible"] = False
     salon.flags["trappe_ouverte"] = False
+
+    # Trésors et actions rapportant des points
+    cuisine.flags["score_entree"] = {"cle": "entree_maison", "points": 10}
+    cave.flags["score_entree"] = {"cle": "entree_cave", "points": 25}
+
+    oeuf.props["score_prise"] = {"cle": "prise_oeuf", "points": 5}
+    oeuf.props["score_vitrine"] = {"cle": "vitrine_oeuf", "points": 5}
+    tableau.props["score_prise"] = {"cle": "prise_tableau", "points": 4}
+    tableau.props["score_vitrine"] = {"cle": "vitrine_tableau", "points": 6}
+
+
 
 
     # Point d'entrée        
