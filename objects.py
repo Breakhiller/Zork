@@ -538,6 +538,12 @@ class Engine:
                 if  obj.nom == nom_objet:
                     obj.props.update(props)
 
+        # Modifier état des objets
+        for nom_objet, etats in regle.get("set_objet_etat", {}).items():
+            for obj in piece.objets:
+                if obj.nom == nom_objet:
+                    obj.etat.update(etats)
+
         # Révéler des sorties
         for direction, id_piece in regle.get("revele_sorties", {}).items():
             piece.ajouter_sortie(direction, self.monde[id_piece])
@@ -959,7 +965,7 @@ def connecter_pieces(monde):
 
     monde["arbre"].ajouter_sortie("descendre", monde["foret_sentier"])
 
-    monde["maison_derriere"].ajouter_sortie("entrer", monde["cuisine"])
+#    monde["maison_derriere"].ajouter_sortie("entrer", monde["cuisine"])
     monde["maison_derriere"].ajouter_sortie("nord", monde["maison_nord"])
     monde["maison_derriere"].ajouter_sortie("est", monde["clairiere_2"])
     monde["maison_derriere"].ajouter_sortie("sud", monde["maison_sud"])
@@ -1030,6 +1036,10 @@ def creer_objets():
     objets["fenetre"] = fenetre
     fenetre.props = {"ouvrable": True, "message_premiere_ouverture": "Avec un grand effort, tu parviens à ouvrir la fenêtre"}
     fenetre.etat = {"ouvert": False, "deja_ouvert": False}
+    fenetre.actions["ouvrir"] = {
+        "set_objet_etat": {"fenêtre": {"ouvert": True}},
+        "revele_sorties": {"entrer": "cuisine"}
+    }
 
     lampe = Objet("lampe", "Une lampe en laiton fonctionnant à piles")
     objets["lampe"] = lampe
