@@ -48,38 +48,44 @@ class Piece:
 #            print("Sorties :", ", ".join(self.sorties.keys()))
 
     def decrire_objets(self, long = False):
-        if  self.objets:
-            for objet in self.objets:
-                if  objet.props.get("visible", True):
+        for objet in self.objets:
+            if  objet.props.get("visible", True):
+                self.decrire_objet_visible(objet, long)
 
-                    if long:                    
-                        print(f"Il y a {objet.decrire()} ici")
-                    else:
-                        print(f"Il y a {objet.description_courte} ici")
+    def decrire_objet_visible(self, objet, long = False):                    
+            texte = objet.decrire() if long else objet.decrire_court()
+            print(f"Il y a {texte} ici")
 
-                    if  objet.props.get("support", False) and objet.objets_sur:
-                        print(f"\nSur {objet.nom}, tu vois :")
-                        for obj in objet.objets_sur:
-                            print(f"- {obj.description_courte}")
+            self.decrire_objets_sur(objet)
+            self.decrire_objets_dans(objet)
 
-                            if  obj.props.get("conteneur", False):
-                                if  obj.props.get("ouvrable", False) and not obj.etat.get("ouvert", False):
-                                    continue
-                                if  obj.contenu:
-                                    print(f"   {obj.nom} contient :")
-                                    for contenu in obj.contenu:
-                                        print(f"   - {contenu.description_courte}")
-                                else:
-                                    print(f"   {obj.nom()} est vide")
-                               
+    def decrire_objets_sur(self, objet):
+        if  not objet.props.get("support", False):
+            return
+        
+        if  not objet.objets_sur:
+            return
+        
+        print(f"\nSur {objet.nom}, tu vois :")
 
-                    if  objet.props.get("conteneur", False):
-                        if  objet.props.get("ouvrable", False) and not objet.etat.get("ouvert", False):
-                            continue
-                        if  objet.contenu:
-                            print(f"Dans {objet.nom}, tu vois :")
-                            for obj in objet.contenu:
-                                print(f"- {obj.description_courte}")
+        for obj in objet.objets_sur:
+            print(f"- {obj.decrire_court()}")
+            self.decrire_objets_dans(obj, indentation = "   ")
+
+    def decrire_objets_dans(self, objet, indentation = ""):
+        if  not objet.props.get("conteneur", False):
+            return
+        
+        if  objet.props.get("ouvrable", False) and not objet.etat.get("ouvert", False):
+            return
+        
+        if  not objet.contenu:
+            return
+        
+        print(f"{indentation}Dans {objet}, tu vois :")
+
+        for obj in objet.contenu:
+            print(f"{indentation}- {obj.decrire_court()}")
 
 
 class Objet:
@@ -130,16 +136,6 @@ class Objet:
 
         return texte
     
-#    def trouver_objet(self, nom):
-#        for objet in self.contenu:
-#            if  objet.nom == nom and objet.props.get("visible", True):
-#                return objet
-#        return None
-
-#   ä supprimer vraiment ? faudra voir    
-#    def trouver_objet(self, nom):
-#        return self.chercher_dans_liste(self.objets, nom)
-
     def trouver_objet_dans(self, nom):
         return self.chercher_dans_liste(self.contenu, nom)
 
@@ -273,7 +269,8 @@ class Engine:
         print("nord, sud, est, ouest, nord-est, nord-ouest, sud-ouest, nord-ouest")
         print("entrer, sortir, monter, descendre\n")
         print("Verbes courants :")
-        print("prendre, poser, poser objet sur support, mettre objet dans conteneur\n   ")
+        print("prendre, poser, poser objet sur support, mettre objet dans conteneur")
+        print("déplacer, ouvrir, allumer\n")
         print("Commandes de jeu :")
         print("regarder : décrit la pièce actuelle")
         print("examiner : donne une description détaillée d'un objet")
@@ -288,7 +285,6 @@ class Engine:
             print("Tu ne portes rien.")
 
     def aller(self, direction):
-#        direction = self.normaliser_direction(direction)
         piece = self.joueur.position
 
         if  direction in piece.sorties:
@@ -299,7 +295,7 @@ class Engine:
             # ajout cas spécial trappe qui se referme, a rendre générique plus tard
             
             if  ancienne_piece.nom == "Salon" and self.joueur.position.nom == "Cave":
-                ancienne_piece.flags["trappe ouverte"] = False
+                ancienne_piece.flags["trappe_ouverte"] = False
 
                 if  "descendre" in ancienne_piece.sorties:
                     del ancienne_piece.sorties["descendre"]
@@ -424,8 +420,6 @@ class Engine:
                 self.modifier_score(-score["points"])
                 objet.etat["dans_vitrine"] = False
         
-#        piece = self.joueur.position
-#        piece.objets.remove(objet)
         self.joueur.inventaire.append(objet)
         print(f"Tu prends {objet.nom}")
 
@@ -475,7 +469,6 @@ class Engine:
             print("Cet objet est déjà ici.")
             return
         
-#        if  origine == "conteneur":
         if origine in ("dans", "sur"):
             print("Tu dois d'abord le prendre")
             return
@@ -560,13 +553,11 @@ class Engine:
         return ALIASES.get(direction, direction)
 
     def afficher_contenu_objet(self, objet):
-#        print("on est dans afficher_contenu_objet")
         if  objet.props.get("support", False):
             if  objet.objets_sur:
                 print(f"\nSur {objet.nom} tu vois :")
                 for obj in objet.objets_sur:
                     print(f"- {obj.description}")
-#                    print("normalement il devrait trouver la bouteille ici")
 
                     # si l'objet est lui-même un conteneur
                     if  obj.props.get("conteneur", False):
@@ -757,7 +748,6 @@ class Engine:
             if  objet.nom == "lampe":
                 self.joueur.inventaire.remove(objet)
                 self.monde["maison_derriere"].objets.append(objet)
-                inventaire.remove(objet)
             else:
                 reste.append(objet)      # crée une liste reste pour éviter que la lampe soit enlevée deux fois
 
@@ -778,6 +768,20 @@ class Engine:
 
 
 def creer_monde():
+    monde = creer_pieces()
+    connecter_pieces(monde)
+
+    objets = creer_objets()
+    placer_objets(monde, objets)
+    initialiser_contenus(objets)
+    initialiser_flags(monde)
+    initialiser_scores(monde, objets)
+
+    # Point d'entrée        
+    return monde    
+
+
+def creer_pieces():    
     canyon_vue = Piece(
         "Vue sur le canyon",
         "Tu te trouves au sommet du Grand Canyon, sur sa paroi ouest. De là, vous avez une vue magnifique sur le canyon et sur certaines parties de la rivière Frigid en amont. De l'autre côté du canyon, les parois des White Cliffs rejoignent les imposants remparts des Flathead Mountains à l'est. En remontant le canyon vers le nord, on peut apercevoir les chutes d'Aragain, avec un arc-en-ciel. La puissante rivière Frigid jaillit d'une immense caverne sombre. À l'ouest et au sud, on aperçoit une immense forêt qui s'étend sur des kilomètres à la ronde. Un sentier mène vers le nord-ouest. Il est possible de descendre dans le canyon depuis cet endroit."
@@ -878,98 +882,7 @@ def creer_monde():
         "C'est une petite pièce avec des passages menant à l'est et au sud, ainsi qu'un trou sinistre s'ouvrant vers l'ouest. Des taches de sang et de profondes éraflures (probablement causées par une hache) marquent les murs.\nUn troll à l'air repoussant, brandissant une hache ensanglantée, bloque tous les passages menant hors de la pièce.\nLe coup puissant du troll te fait tomber à genoux.\nSauve-toi par le sud !"
     )
 
-    # Sorties
-    canyon_vue.ajouter_sortie("ouest", foret_3)
-    canyon_vue.ajouter_sortie("nord-ouest", clairiere_2)
-    canyon_vue.ajouter_sortie("descendre", corniche)
-
-    corniche.ajouter_sortie("monter", canyon_vue)
-    corniche.ajouter_sortie("descendre", canyon_bas)
-
-    canyon_bas.ajouter_sortie("nord", bout_arc_en_ciel)
-    canyon_bas.ajouter_sortie("monter", corniche)
-
-    bout_arc_en_ciel.ajouter_sortie("sud-ouest", canyon_bas)
-# manque caché    bout_arc_en_ciel.ajouter_sortie("monter",arc_en_ciel)
-
-    clairiere_1.ajouter_sortie("est", foret_2)
-    clairiere_1.ajouter_sortie("sud", foret_sentier)
-    clairiere_1.ajouter_sortie("ouest", foret_1)
-# manque, caché    clairiere_1.ajouter_objet("descendre", grille_salle)
-
-    clairiere_2.ajouter_sortie("nord", foret_2)
-    clairiere_2.ajouter_sortie("est", canyon_vue)
-    clairiere_2.ajouter_sortie("sud", foret_3)
-    clairiere_2.ajouter_sortie("ouest", maison_derriere)
-
-    foret_1.ajouter_sortie("nord", clairiere_1)
-    foret_1.ajouter_sortie("est", foret_sentier)
-    foret_1.ajouter_sortie("sud", foret_3)
-
-    foret_2.ajouter_sortie("est", foret_4)
-    foret_2.ajouter_sortie("sud", clairiere_2)
-    foret_2.ajouter_sortie("ouest", foret_sentier)
-
-    foret_3.ajouter_sortie("nord", clairiere_2)
-    foret_3.ajouter_sortie("ouest", foret_1)
-    foret_3.ajouter_sortie("nord-ouest", maison_sud)
-
-    foret_4.ajouter_sortie("nord", foret_2)
-    foret_4.ajouter_sortie("sud", foret_2)
-    foret_4.ajouter_sortie("ouest", foret_2)
-
-    foret_sentier.ajouter_sortie("nord", clairiere_1)
-    foret_sentier.ajouter_sortie("est", foret_2)
-    foret_sentier.ajouter_sortie("sud", maison_nord)
-    foret_sentier.ajouter_sortie("ouest", foret_1)
-    foret_sentier.ajouter_sortie("monter", arbre)
-
-    arbre.ajouter_sortie("descendre", foret_sentier)
-
-    maison_derriere.ajouter_sortie("entrer", cuisine)
-    maison_derriere.ajouter_sortie("nord", maison_nord)
-    maison_derriere.ajouter_sortie("est", clairiere_2)
-    maison_derriere.ajouter_sortie("sud", maison_sud)
-
-    maison_nord.ajouter_sortie("nord", foret_sentier)
-    maison_nord.ajouter_sortie("est", maison_derriere)
-    maison_nord.ajouter_sortie("ouest", maison_ouest)
-
-    maison_ouest.ajouter_sortie("nord", maison_nord)
-    maison_ouest.ajouter_sortie("sud", maison_sud)
-    maison_ouest.ajouter_sortie("ouest", foret_1)
-
-    maison_sud.ajouter_sortie("est", maison_derriere)
-    maison_sud.ajouter_sortie("sud", foret_3)
-    maison_sud.ajouter_sortie("ouest", maison_ouest)
-
-    cuisine.ajouter_sortie("est", maison_derriere)
-    cuisine.ajouter_sortie("sortir", maison_derriere)
-    cuisine.ajouter_sortie("ouest", salon)
-    cuisine.ajouter_sortie("monter", grenier)
-
-    grenier.ajouter_sortie("descendre", cuisine)
-
-    salon.ajouter_sortie("est", cuisine)
-#   caché : salon.ajouter_sortie("descendre", cave)
-
-    cave.ajouter_sortie("nord", salle_troll)
-    cave.ajouter_sortie("monter", salon)
-    cave.ajouter_sortie("sud", gouffre_est)
-
-    gouffre_est.ajouter_sortie("nord", cave)
-    gouffre_est.ajouter_sortie("est", galerie)
-
-    galerie.ajouter_sortie("nord", studio)
-    galerie.ajouter_sortie("ouest", gouffre_est)
-
-    studio.ajouter_sortie("sud", galerie)
-    studio.ajouter_sortie("monter", cuisine)
-
-    salle_troll.ajouter_sortie("sud", cave)
-
-    # Monde
-    monde = {
+    return {
         "depart": maison_ouest,
         "canyon_vue": canyon_vue,
         "corniche": corniche,
@@ -986,6 +899,7 @@ def creer_monde():
         "maison_nord": maison_nord,
         "maison_sud": maison_sud,
         "maison_derriere": maison_derriere,
+        "maison_ouest": maison_ouest,
         "cuisine": cuisine,
         "grenier": grenier,
         "salon": salon,
@@ -996,18 +910,110 @@ def creer_monde():
         "salle_troll": salle_troll
     }
 
+    # Sorties
+def connecter_pieces(monde):
+    monde["canyon_vue"].ajouter_sortie("ouest", monde["foret_3"])
+    monde["canyon_vue"].ajouter_sortie("nord-ouest", monde["clairiere_2"])
+    monde["canyon_vue"].ajouter_sortie("descendre", monde["corniche"])
+
+    monde["corniche"].ajouter_sortie("monter", monde["canyon_vue"])
+    monde["corniche"].ajouter_sortie("descendre", monde["canyon_bas"])
+
+    monde["canyon_bas"].ajouter_sortie("nord", monde["bout_arc_en_ciel"])
+    monde["canyon_bas"].ajouter_sortie("monter", monde["corniche"])
+
+    monde["bout_arc_en_ciel"].ajouter_sortie("sud-ouest", monde["canyon_bas"])
+# manque caché    bout_arc_en_ciel.ajouter_sortie("monter",arc_en_ciel)
+
+    monde["clairiere_1"].ajouter_sortie("est", monde["foret_2"])
+    monde["clairiere_1"].ajouter_sortie("sud", monde["foret_sentier"])
+    monde["clairiere_1"].ajouter_sortie("ouest", monde["foret_1"])
+# manque, caché    clairiere_1.ajouter_objet("descendre", grille_salle)
+
+    monde["clairiere_2"].ajouter_sortie("nord", monde["foret_2"])
+    monde["clairiere_2"].ajouter_sortie("est", monde["canyon_vue"])
+    monde["clairiere_2"].ajouter_sortie("sud", monde["foret_3"])
+    monde["clairiere_2"].ajouter_sortie("ouest", monde["maison_derriere"])
+
+    monde["foret_1"].ajouter_sortie("nord", monde["clairiere_1"])
+    monde["foret_1"].ajouter_sortie("est", monde["foret_sentier"])
+    monde["foret_1"].ajouter_sortie("sud", monde["foret_3"])
+
+    monde["foret_2"].ajouter_sortie("est", monde["foret_4"])
+    monde["foret_2"].ajouter_sortie("sud", monde["clairiere_2"])
+    monde["foret_2"].ajouter_sortie("ouest", monde["foret_sentier"])
+
+    monde["foret_3"].ajouter_sortie("nord", monde["clairiere_2"])
+    monde["foret_3"].ajouter_sortie("ouest", monde["foret_1"])
+    monde["foret_3"].ajouter_sortie("nord-ouest", monde["maison_sud"])
+
+    monde["foret_4"].ajouter_sortie("nord", monde["foret_2"])
+    monde["foret_4"].ajouter_sortie("sud", monde["foret_2"])
+    monde["foret_4"].ajouter_sortie("ouest", monde["foret_2"])
+
+    monde["foret_sentier"].ajouter_sortie("nord", monde["clairiere_1"])
+    monde["foret_sentier"].ajouter_sortie("est", monde["foret_2"])
+    monde["foret_sentier"].ajouter_sortie("sud", monde["maison_nord"])
+    monde["foret_sentier"].ajouter_sortie("ouest", monde["foret_1"])
+    monde["foret_sentier"].ajouter_sortie("monter", monde["arbre"])
+
+    monde["arbre"].ajouter_sortie("descendre", monde["foret_sentier"])
+
+    monde["maison_derriere"].ajouter_sortie("entrer", monde["cuisine"])
+    monde["maison_derriere"].ajouter_sortie("nord", monde["maison_nord"])
+    monde["maison_derriere"].ajouter_sortie("est", monde["clairiere_2"])
+    monde["maison_derriere"].ajouter_sortie("sud", monde["maison_sud"])
+
+    monde["maison_nord"].ajouter_sortie("nord", monde["foret_sentier"])
+    monde["maison_nord"].ajouter_sortie("est", monde["maison_derriere"])
+    monde["maison_nord"].ajouter_sortie("ouest", monde["maison_ouest"])
+
+    monde["maison_ouest"].ajouter_sortie("nord", monde["maison_nord"])
+    monde["maison_ouest"].ajouter_sortie("sud", monde["maison_sud"])
+    monde["maison_ouest"].ajouter_sortie("ouest", monde["foret_1"])
+
+    monde["maison_sud"].ajouter_sortie("est", monde["maison_derriere"])
+    monde["maison_sud"].ajouter_sortie("sud", monde["foret_3"])
+    monde["maison_sud"].ajouter_sortie("ouest", monde["maison_ouest"])
+
+    monde["cuisine"].ajouter_sortie("est", monde["maison_derriere"])
+    monde["cuisine"].ajouter_sortie("sortir", monde["maison_derriere"])
+    monde["cuisine"].ajouter_sortie("ouest", monde["salon"])
+    monde["cuisine"].ajouter_sortie("monter", monde["grenier"])
+
+    monde["grenier"].ajouter_sortie("descendre", monde["cuisine"])
+
+    monde["salon"].ajouter_sortie("est", monde["cuisine"])
+#   caché : salon.ajouter_sortie("descendre", cave)
+
+    monde["cave"].ajouter_sortie("nord", monde["salle_troll"])
+    monde["cave"].ajouter_sortie("monter", monde["salon"])
+    monde["cave"].ajouter_sortie("sud", monde["gouffre_est"])
+
+    monde["gouffre_est"].ajouter_sortie("nord", monde["cave"])
+    monde["gouffre_est"].ajouter_sortie("est", monde["galerie"])
+
+    monde["galerie"].ajouter_sortie("nord", monde["studio"])
+    monde["galerie"].ajouter_sortie("ouest", monde["gouffre_est"])
+
+    monde["studio"].ajouter_sortie("sud", monde["galerie"])
+    monde["studio"].ajouter_sortie("monter", monde["cuisine"])
+
+    monde["salle_troll"].ajouter_sortie("sud", monde["cave"])
+
     # Objets
+def creer_objets():
+    objets = {}
+
     boite = Objet("boîte aux lettres", "une boîte aux lettres", portable=False)
-#    boite.props["conteneur"] = True
-#    boite.props["ouvrable"] = True
+    objets["boite"] = boite
     boite.props = {"conteneur": True, "ouvrable": True}
     boite.etat["ouvert"] = False
-#    boite.actions["ouvrir"] = {
-#        "message": "La boîte aux lettres est ouverte",
-#        "set_flags": {"boite_ouverte": True}
-#    }
+
     depliant = Objet("dépliant", "un dépliant sur lequel est écrit : BIENVENUE A ZORK")
+    objets["depliant"] = depliant
     feuilles = Objet("feuilles", "un tas de feuilles sur le sol", portable=False)
+    objets["feuilles"] = feuilles
     feuilles.actions["deplacer"] = {
         "message": "Il y a une grille solidement fixée au sol",
         "set_flags": {"feuilles_deplacees": True},
@@ -1015,40 +1021,55 @@ def creer_monde():
     }
     oeuf = Objet("oeuf", "Un gros œuf incrusté de pierres précieuses, apparemment ramassé par un oiseau chanteur sans progéniture. L'œuf est recouvert d'une fine incrustation d'or et orné de lapis-lazuli et de nacre. Contrairement à la plupart des œufs, celui-ci est articulé et se ferme à l'aide d'un fermoir d'apparence délicate. L'œuf semble extrêmement fragile.",
                  description_courte = "un oeuf doré incrusté de pierres précieuses")
+    objets["oeuf"] = oeuf
     grille = Objet("grille", "une grille fortement fixée au sol", portable=False)
+    objets["grille"] = grille
     grille.props = {"visible": False}
 
     fenetre = Objet("fenêtre", "une petite fenêtre")
+    objets["fenetre"] = fenetre
     fenetre.props = {"ouvrable": True, "message_premiere_ouverture": "Avec un grand effort, tu parviens à ouvrir la fenêtre"}
     fenetre.etat = {"ouvert": False, "deja_ouvert": False}
 
     lampe = Objet("lampe", "Une lampe en laiton fonctionnant à piles")
+    objets["lampe"] = lampe
     lampe.props = {"lumiere": True, "allumable": True}
     lampe.etat["allumee"] = False
     lampe.etat["duree"] = 20            #nombre de tours
 
     ail = Objet("ail", "une gousse d'ail")
+    objets["ail"] = ail
     bouteille = Objet("bouteille", "une bouteille en verre")
+    objets["bouteille"] = bouteille
     bouteille.props = {"conteneur": True, "ouvrable": True}
     bouteille.etat["ouvert"] = True
     eau = Objet("eau", "une certaine quantité d'eau")
+    objets["eau"] = eau
     corde = Objet("corde", "Un gros rouleau de corde  est posé dans un coin du grenier", description_courte = "un gros rouleau de corde")
+    objets["corde"] = corde
     couteau = Objet("couteau", "un couteau bien aiguisé")
+    objets["couteau"] = couteau
     epee = Objet("épée", "une épée elfique très ancienne")
+    objets["epee"] = epee
     repas = Objet("repas", "un repas emballé dans du papier")
+    objets["repas"] = repas
 
     sac = Objet("sac", "un sac brun allongé")
+    objets["sac"] = sac
     sac.props = {"conteneur": True, "ouvrable": True}
     sac.etat["ouvert"] = False
 
     table = Objet("table", "une vieille table en bois")
+    objets["table"] = table
     table.props = {"support": True}
 
     vitrine = Objet("vitrine", "une vitrine à trophées")
+    objets["vitrine"] = vitrine
     vitrine.props = {"conteneur": True, "ouvrable": True, "support": True}
     vitrine.etat["ouvert"] = False
 
     tapis = Objet("tapis", "un grand tapis d'orient au centre de la pièce")
+    objets["tapis"] = tapis
     tapis.props = {"deplacable": True}
     tapis.actions["deplacer"] = {
         "message": "Tu déplaces le tapis. Une trappe apparaît sur le sol",
@@ -1057,6 +1078,7 @@ def creer_monde():
     }
 
     trappe = Objet("trappe", "Une trappe en bois apparaît sur le sol", portable=False)
+    objets["trappe"] = trappe
     trappe.props = {"visible": False}
     trappe.actions["ouvrir"] = {
         "message": "Tu ouvres la trappe. Un escalier descend dans l'obscurité",
@@ -1067,67 +1089,69 @@ def creer_monde():
 
     tableau = Objet("tableau", "Heureusement, il te reste une chance de jouer les vandales, car sur le mur du fond se trouve un tableau d'une beauté sans pareille.",
                      description_courte = "un tableau d'une beauté sans pareille")
+    objets["tableau"] = tableau
+    
+    return objets
 
     # Localisation objets
-    maison_ouest.ajouter_objet(boite)
-    maison_derriere.ajouter_objet(fenetre)
+def placer_objets(monde, objets):
+    monde["maison_ouest"].ajouter_objet(objets["boite"])
+    monde["maison_derriere"].ajouter_objet(objets["fenetre"])
     
-    clairiere_1.ajouter_objet(feuilles)
-    clairiere_1.ajouter_objet(grille)
-    arbre.ajouter_objet(oeuf)
+    monde["clairiere_1"].ajouter_objet(objets["feuilles"])
+    monde["clairiere_1"].ajouter_objet(objets["grille"])
+    monde["arbre"].ajouter_objet(objets["oeuf"])
 
-    cuisine.ajouter_objet(fenetre)
-    cuisine.ajouter_objet(table)
-    salon.ajouter_objet(tapis)
-    salon.ajouter_objet(trappe)
-    salon.ajouter_objet(vitrine)
-    grenier.ajouter_objet(corde)
-    grenier.ajouter_objet(couteau)
+    monde["cuisine"].ajouter_objet(objets["fenetre"])
+    monde["cuisine"].ajouter_objet(objets["table"])
+    monde["salon"].ajouter_objet(objets["tapis"])
+    monde["salon"].ajouter_objet(objets["trappe"])
+    monde["salon"].ajouter_objet(objets["vitrine"])
+    monde["grenier"].ajouter_objet(objets["corde"])
+    monde["grenier"].ajouter_objet(objets["couteau"])
 
-    galerie.ajouter_objet(tableau)
+    monde["galerie"].ajouter_objet(objets["tableau"])
 
     # Initialisation du contenu des objets
-    boite.contenu.append(depliant)
-    sac.contenu.append(ail)
-    sac.contenu.append(repas)
-    table.objets_sur.append(sac)
-    table.objets_sur.append(bouteille)
-    bouteille.contenu.append(eau)
-    vitrine.objets_sur.append(epee)
-    vitrine.objets_sur.append(lampe)
+def initialiser_contenus(objets):
+    objets["boite"].contenu.append(objets["depliant"])
+    objets["sac"].contenu.append( objets["ail"])
+    objets["sac"].contenu.append( objets["repas"])
+    objets["table"].objets_sur.append( objets["sac"])
+    objets["table"].objets_sur.append( objets["bouteille"])
+    objets["bouteille"].contenu.append( objets["eau"])
+    objets["vitrine"].objets_sur.append( objets["epee"])
+    objets["vitrine"].objets_sur.append( objets["lampe"])
 
     # États locaux (pièces)
-    cave.flags["sombre"] = True
-    clairiere_1.flags["feuilles_deplacees"] = False
-    clairiere_1.flags["foret"] = True
-    clairiere_2.flags["foret"] = True
-    foret_1.flags["foret"] = True
-    foret_2.flags["foret"] = True
-    foret_3.flags["foret"] = True
-    foret_4.flags["foret"] = True
-    foret_sentier.flags["foret"] = True
-    gouffre_est.flags["sombre"] = True
-    galerie.flags["sombre"] = True
-    studio.flags["sombre"] = True
-    salle_troll.flags["sombre"] = True
-    salon.flags["tapis_deplace"] = False
-    salon.flags["trappe_visible"] = False
-    salon.flags["trappe_ouverte"] = False
+def initialiser_flags(monde):
+    monde["cave"].flags["sombre"] = True
+    monde["clairiere_1"].flags["feuilles_deplacees"] = False
+    monde["clairiere_1"].flags["foret"] = True
+    monde["clairiere_2"].flags["foret"] = True
+    monde["foret_1"].flags["foret"] = True
+    monde["foret_2"].flags["foret"] = True
+    monde["foret_3"].flags["foret"] = True
+    monde["foret_4"].flags["foret"] = True
+    monde["foret_sentier"].flags["foret"] = True
+    monde["gouffre_est"].flags["sombre"] = True
+    monde["galerie"].flags["sombre"] = True
+    monde["studio"].flags["sombre"] = True
+    monde["salle_troll"].flags["sombre"] = True
+    monde["salon"].flags["tapis_deplace"] = False
+    monde["salon"].flags["trappe_visible"] = False
+    monde["salon"].flags["trappe_ouverte"] = False
 
     # Trésors et actions rapportant des points
-    cuisine.flags["score_entree"] = {"cle": "entree_maison", "points": 10}
-    cave.flags["score_entree"] = {"cle": "entree_cave", "points": 25}
+def initialiser_scores(monde, objets):
+    monde["cuisine"].flags["score_entree"] = {"cle": "entree_maison", "points": 10}
+    monde["cave"].flags["score_entree"] = {"cle": "entree_cave", "points": 25}
 
-    oeuf.props["score_prise"] = {"cle": "prise_oeuf", "points": 5}
-    oeuf.props["score_vitrine"] = {"cle": "vitrine_oeuf", "points": 5}
-    tableau.props["score_prise"] = {"cle": "prise_tableau", "points": 4}
-    tableau.props["score_vitrine"] = {"cle": "vitrine_tableau", "points": 6}
+    objets["oeuf"].props["score_prise"] = {"cle": "prise_oeuf", "points": 5}
+    objets["oeuf"].props["score_vitrine"] = {"cle": "vitrine_oeuf", "points": 5}
+    objets["tableau"].props["score_prise"] = {"cle": "prise_tableau", "points": 4}
+    objets["tableau"].props["score_vitrine"] = {"cle": "vitrine_tableau", "points": 6}
 
-
-
-
-    # Point d'entrée        
-    return monde    
 
 
 # main
